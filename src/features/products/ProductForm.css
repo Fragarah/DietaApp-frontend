@@ -1,0 +1,237 @@
+.product-form {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 1.75rem;
+}
+
+.product-form__header {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.product-form__brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+.product-form__header h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 650;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.product-form__subtitle {
+  margin: 0;
+  color: var(--muted);
+  max-width: 40rem;
+}
+
+.product-form__banner {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
+}
+
+.product-form__banner--success {
+  background: var(--success-bg);
+  color: var(--success-ink);
+}
+
+.product-form__banner--error {
+  background: var(--error-bg);
+  color: var(--error-ink);
+}
+
+.product-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+
+.field--span {
+  grid-column: 1 / -1;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.field span,
+.field legend {
+  font-weight: 600;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  color: var(--ink);
+}
+
+.field input:focus,
+.field select:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.field__error {
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+.field__hint {
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 70%, var(--mix-base));
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.segmented label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.portions {
+  display: grid;
+  gap: 1rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.portions__head h2 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+}
+
+.portions__head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.portions__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.portion-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr auto auto;
+  gap: 0.75rem;
+  align-items: end;
+  padding: 0.85rem;
+  background: color-mix(in srgb, var(--surface) 70%, var(--mix-base));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.portion-row__default {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-bottom: 0.75rem;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+.product-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.75rem 1.1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: var(--panel);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+:root[data-theme='dark'] .btn--primary {
+  color: #102018;
+}
+
+.btn--secondary {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  justify-self: start;
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+@media (max-width: 720px) {
+  .product-form__grid,
+  .portion-row {
+    grid-template-columns: 1fr;
+  }
+
+  .portion-row__default {
+    padding-bottom: 0;
+  }
+}

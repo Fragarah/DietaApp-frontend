@@ -1,0 +1,113 @@
+.products-table-card {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.products-table-card__header {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.products-table-card__brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+.products-table-card__header h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 650;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.products-table-card__subtitle {
+  margin: 0;
+  color: var(--muted);
+  max-width: 42rem;
+}
+
+.products-table-card__banner {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.products-table-card__banner--error {
+  background: var(--error-bg);
+  color: var(--error-ink);
+}
+
+.products-table-card__status {
+  margin: 0;
+  color: var(--muted);
+}
+
+.products-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+
+.products-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.products-table th,
+.products-table td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.products-table th {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 80%, var(--mix-base));
+  white-space: nowrap;
+}
+
+.products-table td {
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.products-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.products-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn--secondary {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
