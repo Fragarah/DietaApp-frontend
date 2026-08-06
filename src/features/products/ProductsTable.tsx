@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { pl } from '../../i18n/pl'
-import { fetchProducts } from './api'
+import { deleteProduct, fetchProducts } from './api'
 import type { ProductResponse } from './types'
 import './ProductsTable.css'
 
@@ -26,6 +26,9 @@ export function ProductsTable({ reloadToken = 0 }: ProductsTableProps) {
   const [products, setProducts] = useState<ProductResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [productToDelete, setProductToDelete] = useState<ProductResponse | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const loadProducts = useCallback(async () => {
     setLoading(true)
@@ -45,6 +48,26 @@ export function ProductsTable({ reloadToken = 0 }: ProductsTableProps) {
     void loadProducts()
   }, [loadProducts, reloadToken])
 
+  async function confirmDelete() {
+    if (!productToDelete) {
+      return
+    }
+
+    setDeleting(true)
+    setError(null)
+    try {
+      await deleteProduct(productToDelete.id)
+      setProducts((current) => current.filter((product) => product.id !== productToDelete.id))
+      setSuccessMessage(pl.table.deleteSuccess)
+      setProductToDelete(null)
+    } catch {
+      setError(pl.errors.deleteFailed)
+      setProductToDelete(null)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <section className="products-table-card">
       <header className="products-table-card__header">
@@ -52,6 +75,12 @@ export function ProductsTable({ reloadToken = 0 }: ProductsTableProps) {
         <h1>{pl.table.title}</h1>
         <p className="products-table-card__subtitle">{pl.table.subtitle}</p>
       </header>
+
+      {successMessage ? (
+        <p className="products-table-card__banner products-table-card__banner--success" role="status">
+          {successMessage}
+        </p>
+      ) : null}
 
       {error ? (
         <p className="products-table-card__banner products-table-card__banner--error" role="alert">
@@ -81,6 +110,7 @@ export function ProductsTable({ reloadToken = 0 }: ProductsTableProps) {
                 <th>{pl.table.columns.carbs}</th>
                 <th>{pl.table.columns.fat}</th>
                 <th>{pl.table.columns.defaultPortion}</th>
+                <th className="products-table__actions-col">{pl.table.columns.actions}</th>
               </tr>
             </thead>
             <tbody>
@@ -94,10 +124,68 @@ export function ProductsTable({ reloadToken = 0 }: ProductsTableProps) {
                   <td>{formatNumber(product.carbsPer100)}</td>
                   <td>{formatNumber(product.fatPer100)}</td>
                   <td>{formatDefaultPortion(product)}</td>
+                  <td className="products-table__actions-col">
+                    <button
+                      type="button"
+                      className="btn-delete"
+                      aria-label={`${pl.actions.deleteProduct}: ${product.name}`}
+                      title={pl.actions.deleteProduct}
+                      onClick={() => {
+                        setSuccessMessage(null)
+                        setProductToDelete(product)
+                      }}
+                    >
+                      ×
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      ) : null}
+
+      {productToDelete ? (
+        <div
+          className="confirm-dialog-backdrop"
+          role="presentation"
+          onClick={() => {
+            if (!deleting) {
+              setProductToDelete(null)
+            }
+          }}
+        >
+          <div
+            className="confirm-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-dialog-title"
+            aria-describedby="delete-dialog-message"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="delete-dialog-title">{pl.table.deleteConfirmTitle}</h2>
+            <p id="delete-dialog-message">
+              {pl.table.deleteConfirmMessage.replace('{name}', productToDelete.name)}
+            </p>
+            <div className="confirm-dialog__actions">
+              <button
+                type="button"
+                className="btn btn--danger"
+                disabled={deleting}
+                onClick={() => void confirmDelete()}
+              >
+                {deleting ? pl.actions.deleting : pl.table.deleteConfirmYes}
+              </button>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                disabled={deleting}
+                onClick={() => setProductToDelete(null)}
+              >
+                {pl.table.deleteConfirmNo}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </section>

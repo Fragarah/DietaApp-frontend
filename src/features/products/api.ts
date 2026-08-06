@@ -49,3 +49,13 @@ export async function createProduct(payload: CreateProductPayload): Promise<Prod
 
   return response.json() as Promise<ProductResponse>
 }
+
+export async function deleteProduct(id: number): Promise<void> {
+  const response = await fetch(`${API_URL}/api/products/${id}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    throw new Error(await parseError(response))
+  }
+}
