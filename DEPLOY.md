@@ -1,6 +1,24 @@
 # Deploy checklist — DietaApp
 
-Kolejność: GitHub → Neon → Render → Vercel → CORS → smoke test.
+Kolejność: GitHub (front) → Neon → Render → Vercel → CORS → smoke test.
+
+## 0. GitHub — frontend (jednorazowo)
+
+Backend jest już na: https://github.com/Fragarah/DietaApp-backend
+
+Front ma lokalny commit, ale **repo na GitHubie trzeba utworzyć ręcznie**:
+
+1. Wejdź na https://github.com/new
+2. Repository name: `DietaApp-Front`
+3. **Private** (zalecane) → Create repository (**bez** README / .gitignore).
+4. W PowerShell w katalogu `DietaApp-Front`:
+
+```powershell
+git remote add origin https://github.com/Fragarah/DietaApp-Front.git
+git push -u origin main
+```
+
+(Albo: `gh auth login`, potem `gh repo create DietaApp-Front --private --source=. --remote=origin --push`.)
 
 ## 1. Neon (Postgres)
 
