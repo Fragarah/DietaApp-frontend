@@ -59,3 +59,23 @@ export async function deleteProduct(id: number): Promise<void> {
     throw new Error(await parseError(response))
   }
 }
+
+export async function updateProduct(
+  id: number,
+  payload: CreateProductPayload,
+): Promise<ProductResponse> {
+  const response = await fetch(`${API_URL}/api/products/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const message = await parseError(response)
+    const error = new Error(message) as Error & { status?: number }
+    error.status = response.status
+    throw error
+  }
+
+  return response.json() as Promise<ProductResponse>
+}

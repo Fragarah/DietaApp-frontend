@@ -103,10 +103,18 @@
 }
 
 .products-table__actions-col {
-  width: 4rem;
+  width: 6.5rem;
   text-align: center;
 }
 
+.products-table__actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.btn-edit,
 .btn-delete {
   display: inline-flex;
   align-items: center;
@@ -116,10 +124,22 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: transparent;
-  color: var(--danger);
-  font-size: 1.25rem;
+  font-size: 1.05rem;
   line-height: 1;
   cursor: pointer;
+}
+
+.btn-edit {
+  color: var(--accent);
+}
+
+.btn-edit:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.btn-delete {
+  color: var(--danger);
 }
 
 .btn-delete:hover {

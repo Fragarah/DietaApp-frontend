@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { pl } from '../../i18n/pl'
-import { createProduct, fetchCategories } from './api'
+import { createProduct, fetchCategories, updateProduct } from './api'
 import {
   PORTION_UNITS,
   isFixedOneGramUnit,
@@ -8,10 +8,17 @@ import {
   type Category,
   type PortionUnitName,
   type ProductPortionInput,
+  type ProductResponse,
 } from './types'
 import './ProductForm.css'
 
 type FormErrors = Partial<Record<string, string>>
+
+type ProductFormProps = {
+  product?: ProductResponse
+  onCancel?: () => void
+  onSaved?: () => void
+}
 
 const emptyPortion = (isDefault = false): ProductPortionInput => ({
   unitName: 'gram',
@@ -31,19 +38,40 @@ function resolvePortionWeight(portion: ProductPortionInput): number {
   return toNumber(portion.gramWeight)
 }
 
-export function ProductForm() {
+function toPortionUnit(unitName: string): PortionUnitName | '' {
+  return (PORTION_UNITS as readonly string[]).includes(unitName)
+    ? (unitName as PortionUnitName)
+    : ''
+}
+
+function portionsFromProduct(product: ProductResponse): ProductPortionInput[] {
+  if (product.portions.length === 0) {
+    return [emptyPortion(true)]
+  }
+  return product.portions.map((portion) => ({
+    unitName: toPortionUnit(portion.unitName),
+    gramWeight: String(portion.gramWeight),
+    isDefault: portion.isDefault,
+  }))
+}
+
+export function ProductForm({ product, onCancel, onSaved }: ProductFormProps) {
+  const isEdit = Boolean(product)
+
   const [categories, setCategories] = useState<Category[]>([])
   const [categoriesLoading, setCategoriesLoading] = useState(true)
   const [categoriesError, setCategoriesError] = useState<string | null>(null)
 
-  const [name, setName] = useState('')
-  const [categoryId, setCategoryId] = useState('')
-  const [baseUnit, setBaseUnit] = useState<BaseUnit>('g')
-  const [calories, setCalories] = useState('')
-  const [protein, setProtein] = useState('')
-  const [carbs, setCarbs] = useState('')
-  const [fat, setFat] = useState('')
-  const [portions, setPortions] = useState<ProductPortionInput[]>([emptyPortion(true)])
+  const [name, setName] = useState(product?.name ?? '')
+  const [categoryId, setCategoryId] = useState(product ? String(product.categoryId) : '')
+  const [baseUnit, setBaseUnit] = useState<BaseUnit>(product?.baseUnit ?? 'g')
+  const [calories, setCalories] = useState(product ? String(product.caloriesPer100) : '')
+  const [protein, setProtein] = useState(product ? String(product.proteinPer100) : '')
+  const [carbs, setCarbs] = useState(product ? String(product.carbsPer100) : '')
+  const [fat, setFat] = useState(product ? String(product.fatPer100) : '')
+  const [portions, setPortions] = useState<ProductPortionInput[]>(
+    product ? portionsFromProduct(product) : [emptyPortion(true)],
+  )
 
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -146,24 +174,32 @@ export function ProductForm() {
       return
     }
 
+    const payload = {
+      name: name.trim(),
+      categoryId: Number(categoryId),
+      baseUnit,
+      caloriesPer100: toNumber(calories),
+      proteinPer100: toNumber(protein),
+      carbsPer100: toNumber(carbs),
+      fatPer100: toNumber(fat),
+      portions: portions.map((portion) => ({
+        unitName: portion.unitName as PortionUnitName,
+        gramWeight: resolvePortionWeight(portion),
+        isDefault: portion.isDefault,
+      })),
+    }
+
     setSubmitting(true)
     try {
-      await createProduct({
-        name: name.trim(),
-        categoryId: Number(categoryId),
-        baseUnit,
-        caloriesPer100: toNumber(calories),
-        proteinPer100: toNumber(protein),
-        carbsPer100: toNumber(carbs),
-        fatPer100: toNumber(fat),
-        portions: portions.map((portion) => ({
-          unitName: portion.unitName as PortionUnitName,
-          gramWeight: resolvePortionWeight(portion),
-          isDefault: portion.isDefault,
-        })),
-      })
-      setSuccessMessage(pl.success)
-      resetForm()
+      if (isEdit && product) {
+        await updateProduct(product.id, payload)
+        setSuccessMessage(pl.updateSuccess)
+        onSaved?.()
+      } else {
+        await createProduct(payload)
+        setSuccessMessage(pl.success)
+        resetForm()
+      }
     } catch (error) {
       const status = (error as Error & { status?: number }).status
       if (status === 409) {
@@ -172,7 +208,9 @@ export function ProductForm() {
         setSubmitError(
           error instanceof Error && error.message
             ? error.message
-            : pl.errors.saveFailed,
+            : isEdit
+              ? pl.errors.updateFailed
+              : pl.errors.saveFailed,
         )
       }
     } finally {
@@ -233,8 +271,8 @@ export function ProductForm() {
     <form className="product-form" onSubmit={handleSubmit} noValidate>
       <header className="product-form__header">
         <p className="product-form__brand">{pl.appName}</p>
-        <h1>{pl.pageTitle}</h1>
-        <p className="product-form__subtitle">{pl.pageSubtitle}</p>
+        <h1>{isEdit ? pl.editTitle : pl.pageTitle}</h1>
+        <p className="product-form__subtitle">{isEdit ? pl.editSubtitle : pl.pageSubtitle}</p>
       </header>
 
       {successMessage ? (
@@ -439,11 +477,21 @@ export function ProductForm() {
 
       <div className="product-form__actions">
         <button type="submit" className="btn btn--primary" disabled={submitting || Boolean(categoriesError)}>
-          {submitting ? pl.actions.submitting : pl.actions.submit}
+          {submitting
+            ? pl.actions.submitting
+            : isEdit
+              ? pl.actions.saveChanges
+              : pl.actions.submit}
         </button>
-        <button type="button" className="btn btn--ghost" onClick={resetForm} disabled={submitting}>
-          {pl.actions.reset}
-        </button>
+        {isEdit ? (
+          <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={submitting}>
+            {pl.actions.cancel}
+          </button>
+        ) : (
+          <button type="button" className="btn btn--ghost" onClick={resetForm} disabled={submitting}>
+            {pl.actions.reset}
+          </button>
+        )}
       </div>
     </form>
   )

@@ -20,9 +20,10 @@ function formatDefaultPortion(product: ProductResponse): string {
 
 type ProductsTableProps = {
   reloadToken?: number
+  onEdit?: (product: ProductResponse) => void
 }
 
-export function ProductsTable({ reloadToken = 0 }: ProductsTableProps) {
+export function ProductsTable({ reloadToken = 0, onEdit }: ProductsTableProps) {
   const [products, setProducts] = useState<ProductResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -125,18 +126,29 @@ export function ProductsTable({ reloadToken = 0 }: ProductsTableProps) {
                   <td>{formatNumber(product.fatPer100)}</td>
                   <td>{formatDefaultPortion(product)}</td>
                   <td className="products-table__actions-col">
-                    <button
-                      type="button"
-                      className="btn-delete"
-                      aria-label={`${pl.actions.deleteProduct}: ${product.name}`}
-                      title={pl.actions.deleteProduct}
-                      onClick={() => {
-                        setSuccessMessage(null)
-                        setProductToDelete(product)
-                      }}
-                    >
-                      ×
-                    </button>
+                    <div className="products-table__actions">
+                      <button
+                        type="button"
+                        className="btn-edit"
+                        aria-label={`${pl.actions.editProduct}: ${product.name}`}
+                        title={pl.actions.editProduct}
+                        onClick={() => onEdit?.(product)}
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-delete"
+                        aria-label={`${pl.actions.deleteProduct}: ${product.name}`}
+                        title={pl.actions.deleteProduct}
+                        onClick={() => {
+                          setSuccessMessage(null)
+                          setProductToDelete(product)
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
