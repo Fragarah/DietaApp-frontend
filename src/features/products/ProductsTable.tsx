@@ -18,6 +18,10 @@ function formatDefaultPortion(product: ProductResponse): string {
   return `${portion.unitName} (${formatNumber(portion.gramWeight)} g)`
 }
 
+function sortProductsByName(products: ProductResponse[]): ProductResponse[] {
+  return [...products].sort((a, b) => a.name.localeCompare(b.name, 'pl', { sensitivity: 'base' }))
+}
+
 type ProductsTableProps = {
   reloadToken?: number
   onEdit?: (product: ProductResponse) => void
@@ -36,7 +40,7 @@ export function ProductsTable({ reloadToken = 0, onEdit }: ProductsTableProps) {
     setError(null)
     try {
       const data = await fetchProducts()
-      setProducts(data)
+      setProducts(sortProductsByName(data))
     } catch {
       setError(pl.errors.loadProducts)
       setProducts([])
