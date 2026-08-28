@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useAuth } from './features/auth/AuthContext'
 import { LoginPage } from './features/auth/LoginPage'
 import { MealForm } from './features/meals/MealForm'
@@ -17,17 +17,49 @@ import './App.css'
 
 type Screen = AppView | 'edit' | 'editMeal'
 
+/** Widoki nawigacji trzymane w pamięci po pierwszym wejściu (do odświeżenia strony). */
+type KeepAliveView = AppView
+
+function KeepAliveScreen({
+  active,
+  children,
+}: {
+  active: boolean
+  children: ReactNode
+}) {
+  return (
+    <div className="app-screen" hidden={!active} aria-hidden={!active}>
+      {children}
+    </div>
+  )
+}
+
 function AppShell() {
   const { user, logout } = useAuth()
   const [screen, setScreen] = useState<Screen>('portions')
+  const [mountedViews, setMountedViews] = useState<Set<KeepAliveView>>(
+    () => new Set<KeepAliveView>(['portions']),
+  )
   const [tableReloadToken, setTableReloadToken] = useState(0)
   const [mealsReloadToken, setMealsReloadToken] = useState(0)
   const [editingProduct, setEditingProduct] = useState<ProductResponse | null>(null)
   const [editingMeal, setEditingMeal] = useState<MealResponse | null>(null)
 
+  function ensureMounted(view: KeepAliveView) {
+    setMountedViews((current) => {
+      if (current.has(view)) {
+        return current
+      }
+      const next = new Set(current)
+      next.add(view)
+      return next
+    })
+  }
+
   function handleViewChange(next: AppView) {
     setEditingProduct(null)
     setEditingMeal(null)
+    ensureMounted(next)
     setScreen(next)
     if (next === 'table') {
       setTableReloadToken((token) => token + 1)
@@ -45,12 +77,14 @@ function AppShell() {
 
   function handleEditCancel() {
     setEditingProduct(null)
+    ensureMounted('table')
     setScreen('table')
     setTableReloadToken((token) => token + 1)
   }
 
   function handleEditSaved() {
     setEditingProduct(null)
+    ensureMounted('table')
     setScreen('table')
     setTableReloadToken((token) => token + 1)
   }
@@ -63,12 +97,14 @@ function AppShell() {
 
   function handleEditMealCancel() {
     setEditingMeal(null)
+    ensureMounted('mealsTable')
     setScreen('mealsTable')
     setMealsReloadToken((token) => token + 1)
   }
 
   function handleEditMealSaved() {
     setEditingMeal(null)
+    ensureMounted('mealsTable')
     setScreen('mealsTable')
     setMealsReloadToken((token) => token + 1)
   }
@@ -81,12 +117,31 @@ function AppShell() {
       {user ? <UserMenu user={user} onLogout={logout} /> : null}
       <ThemeToggle />
       <AppNav activeView={navView} onChange={handleViewChange} />
-      {screen === 'portions' ? <PortionsBoard /> : null}
-      {screen === 'people' ? <PeoplePage /> : null}
-      {screen === 'add' ? <ProductForm /> : null}
-      {screen === 'table' ? (
-        <ProductsTable reloadToken={tableReloadToken} onEdit={handleEdit} />
+
+      {mountedViews.has('portions') ? (
+        <KeepAliveScreen active={screen === 'portions'}>
+          <PortionsBoard />
+        </KeepAliveScreen>
       ) : null}
+
+      {mountedViews.has('people') ? (
+        <KeepAliveScreen active={screen === 'people'}>
+          <PeoplePage />
+        </KeepAliveScreen>
+      ) : null}
+
+      {mountedViews.has('add') ? (
+        <KeepAliveScreen active={screen === 'add'}>
+          <ProductForm />
+        </KeepAliveScreen>
+      ) : null}
+
+      {mountedViews.has('table') ? (
+        <KeepAliveScreen active={screen === 'table'}>
+          <ProductsTable reloadToken={tableReloadToken} onEdit={handleEdit} />
+        </KeepAliveScreen>
+      ) : null}
+
       {screen === 'edit' && editingProduct ? (
         <ProductForm
           product={editingProduct}
@@ -94,10 +149,19 @@ function AppShell() {
           onSaved={handleEditSaved}
         />
       ) : null}
-      {screen === 'addMeal' ? <MealForm /> : null}
-      {screen === 'mealsTable' ? (
-        <MealsTable reloadToken={mealsReloadToken} onEdit={handleEditMeal} />
+
+      {mountedViews.has('addMeal') ? (
+        <KeepAliveScreen active={screen === 'addMeal'}>
+          <MealForm />
+        </KeepAliveScreen>
       ) : null}
+
+      {mountedViews.has('mealsTable') ? (
+        <KeepAliveScreen active={screen === 'mealsTable'}>
+          <MealsTable reloadToken={mealsReloadToken} onEdit={handleEditMeal} />
+        </KeepAliveScreen>
+      ) : null}
+
       {screen === 'editMeal' && editingMeal ? (
         <MealForm
           meal={editingMeal}
