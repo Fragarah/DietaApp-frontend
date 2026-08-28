@@ -143,3 +143,80 @@ describe('computePortionsForPeople piece split', () => {
     expect(only.appliedScale).toBeCloseTo(475 / meal.recipeCalories, 4)
   })
 })
+
+describe('computePortionsForPeople WHOLE', () => {
+  const wholeMeal: MealResponse = {
+    id: 20,
+    name: 'Garnek 3 dni',
+    mealType: 'WHOLE',
+    mealCategory: 'OBIAD',
+    plannedDays: 3,
+    notes: null,
+    recipeCalories: 3000,
+    recipeProtein: 0,
+    recipeCarbs: 0,
+    recipeFat: 0,
+    ingredients: [
+      {
+        id: 1,
+        productId: 10,
+        productName: 'Kurczak',
+        baseUnit: 'g',
+        quantityBase: 1200,
+        component: null,
+        calories: 1440,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      },
+      {
+        id: 2,
+        productId: 11,
+        productName: 'Ryż',
+        baseUnit: 'g',
+        quantityBase: 600,
+        component: null,
+        calories: 1560,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      },
+    ],
+  }
+
+  const oliwia: PersonColumn = {
+    id: '1',
+    personId: 1,
+    label: 'Oliwia',
+    dailyKcalLimit: 1500,
+    targetKcal: '525',
+  }
+
+  const kacper: PersonColumn = {
+    id: '2',
+    personId: 2,
+    label: 'Kacper',
+    dailyKcalLimit: 1900,
+    targetKcal: '665',
+  }
+
+  it('splits batch into N days then by daily-limit share', () => {
+    const portions = computePortionsForPeople(wholeMeal, [oliwia, kacper], 3400)
+    const a = portions.get(1)!
+    const b = portions.get(2)!
+
+    // Oliwia: 1500/3400/3 ≈ 0.14706 of full batch per day
+    expect(a.appliedScale).toBeCloseTo(1500 / 3400 / 3, 4)
+    expect(b.appliedScale).toBeCloseTo(1900 / 3400 / 3, 4)
+    expect(a.sharePercent).toBeCloseTo(44.1, 1)
+    expect(b.sharePercent).toBeCloseTo(55.9, 1)
+
+    const chickenA = a.lines.find((line) => line.productId === 10)!
+    const chickenB = b.lines.find((line) => line.productId === 10)!
+    expect(chickenA.quantityBase + chickenB.quantityBase).toBeCloseTo(1200 / 3, 2)
+    expect(chickenA.quantityBase).toBeCloseTo(1200 * (1500 / 3400 / 3), 2)
+
+    // Daily pot kcal split by share
+    expect(a.totals.calories + b.totals.calories).toBeCloseTo(3000 / 3, 1)
+  })
+})

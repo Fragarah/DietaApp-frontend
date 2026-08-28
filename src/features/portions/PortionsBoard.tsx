@@ -37,7 +37,7 @@ function kcalAccuracyTone(
   return 'bad'
 }
 
-export function PortionsBoard() {
+export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
   const [meals, setMeals] = useState<MealResponse[]>([])
   const [savedPeople, setSavedPeople] = useState<PersonResponse[]>([])
   const [products, setProducts] = useState<ProductResponse[]>([])
@@ -71,7 +71,13 @@ export function PortionsBoard() {
           )
           const people = [...peopleData].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
           setSavedPeople(people)
-          setSelectedPersonIds(people.map((person) => person.id))
+          setSelectedPersonIds((current) => {
+            if (current.length === 0) {
+              return people.map((person) => person.id)
+            }
+            const stillThere = current.filter((id) => people.some((person) => person.id === id))
+            return stillThere.length > 0 ? stillThere : people.map((person) => person.id)
+          })
           setProducts(productData)
         }
       } catch {
@@ -93,7 +99,7 @@ export function PortionsBoard() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [reloadToken])
 
   useEffect(() => {
     if (!pickerOpen) {
@@ -180,56 +186,85 @@ export function PortionsBoard() {
     >()
     let totalGrams = 0
 
+    function addLine(params: {
+      productId: number
+      productName: string
+      quantityGrams: number
+      quantityBase: number
+      baseUnit: string
+      sortKey: number
+    }) {
+      totalGrams += params.quantityGrams
+      const product = productById.get(params.productId)
+      const defaultPortion = product ? getDefaultPortion(product) : null
+      const countable =
+        isCountableUnit(params.baseUnit) ||
+        Boolean(
+          defaultPortion &&
+            isCountableUnit(defaultPortion.unitName) &&
+            defaultPortion.gramWeight > 0,
+        )
+      const pieceUnit = countable
+        ? isCountableUnit(params.baseUnit)
+          ? params.baseUnit
+          : (defaultPortion?.unitName ?? null)
+        : null
+      const linePieces = countable
+        ? isCountableUnit(params.baseUnit)
+          ? params.quantityBase
+          : defaultPortion && defaultPortion.gramWeight > 0
+            ? params.quantityGrams / defaultPortion.gramWeight
+            : null
+        : null
+
+      const current = byIngredient.get(params.productId)
+      if (current) {
+        current.grams += params.quantityGrams
+        if (current.pieces != null && linePieces != null) {
+          current.pieces += linePieces
+        }
+      } else {
+        byIngredient.set(params.productId, {
+          productName: params.productName,
+          grams: params.quantityGrams,
+          pieces: linePieces,
+          pieceUnit,
+          sortKey: params.sortKey,
+        })
+      }
+    }
+
+    // Suma dziennych porcji zaznaczonych osób (= 1 dzień z garnka przy WHOLE).
     for (const person of personColumns) {
       const portion = portionsByPersonId.get(person.personId)
       if (!portion) {
         continue
       }
       portion.lines.forEach((line, index) => {
-        totalGrams += line.quantityGrams
-        const product = productById.get(line.productId)
-        const defaultPortion = product ? getDefaultPortion(product) : null
-        const countable =
-          isCountableUnit(line.baseUnit) ||
-          Boolean(
-            defaultPortion &&
-              isCountableUnit(defaultPortion.unitName) &&
-              defaultPortion.gramWeight > 0,
-          )
-        const pieceUnit = countable
-          ? isCountableUnit(line.baseUnit)
-            ? line.baseUnit
-            : (defaultPortion?.unitName ?? null)
-          : null
-        const linePieces = countable
-          ? isCountableUnit(line.baseUnit)
-            ? line.quantityBase
-            : defaultPortion && defaultPortion.gramWeight > 0
-              ? line.quantityGrams / defaultPortion.gramWeight
-              : null
-          : null
-
-        const current = byIngredient.get(line.productId)
-        if (current) {
-          current.grams += line.quantityGrams
-          if (current.pieces != null && linePieces != null) {
-            current.pieces += linePieces
-          }
-        } else {
-          byIngredient.set(line.productId, {
-            productName: line.productName,
-            grams: line.quantityGrams,
-            pieces: linePieces,
-            pieceUnit,
-            sortKey: line.mealIngredientId || index,
-          })
-        }
+        addLine({
+          productId: line.productId,
+          productName: line.productName,
+          quantityGrams: line.quantityGrams,
+          quantityBase: line.quantityBase,
+          baseUnit: line.baseUnit,
+          sortKey: line.mealIngredientId || index,
+        })
       })
     }
 
     const ingredients = [...byIngredient.values()].sort((a, b) => a.sortKey - b.sortKey)
     return { totalGrams, ingredients }
   }, [personColumns, portionsByPersonId, productById])
+
+  const wholeDailyPotKcal = useMemo(() => {
+    if (!selectedMeal || selectedMeal.mealType !== 'WHOLE') {
+      return null
+    }
+    const days = selectedMeal.plannedDays != null && selectedMeal.plannedDays >= 1
+      ? selectedMeal.plannedDays
+      : 1
+    return selectedMeal.recipeCalories / days
+  }, [selectedMeal])
 
   const filteredMeals = useMemo(() => {
     const needle = mealQuery.trim().toLocaleLowerCase('pl-PL')
@@ -445,6 +480,16 @@ export function PortionsBoard() {
                   '{days}',
                   String(selectedMeal.plannedDays ?? 1),
                 )}
+                {wholeDailyPotKcal != null ? (
+                  <>
+                    {' '}
+                    ·{' '}
+                    {pl.portions.summary.dailyPot.replace(
+                      '{kcal}',
+                      formatNumber(wholeDailyPotKcal),
+                    )}
+                  </>
+                ) : null}
                 {' '}
                 · {pl.portions.summary.sharePool} {formatNumber(selectedPeopleDailyTotal)} kcal
               </>
@@ -479,8 +524,19 @@ export function PortionsBoard() {
             <div className="portions-columns">
             {personColumns.map((person) => {
               const portion = portionsByPersonId.get(person.personId) ?? null
+              const expectedWholeKcal =
+                isWhole &&
+                wholeDailyPotKcal != null &&
+                selectedPeopleDailyTotal > 0 &&
+                person.dailyKcalLimit > 0
+                  ? wholeDailyPotKcal * (person.dailyKcalLimit / selectedPeopleDailyTotal)
+                  : null
               const kcalTone = portion
-                ? kcalAccuracyTone(portion.totals.calories, person.targetKcal)
+                ? isWhole
+                  ? expectedWholeKcal != null
+                    ? kcalAccuracyTone(portion.totals.calories, String(expectedWholeKcal))
+                    : null
+                  : kcalAccuracyTone(portion.totals.calories, person.targetKcal)
                 : null
               const totalMassGrams = portion
                 ? portion.lines.reduce((sum, line) => sum + line.quantityGrams, 0)
@@ -516,8 +572,10 @@ export function PortionsBoard() {
                             : 'portion-column__computed'
                         }
                       >
-                        {pl.portions.summary.fromTemplate}: {formatNumber(portion.totals.calories)}{' '}
-                        kcal
+                        {isWhole
+                          ? pl.portions.summary.perDayFromPot
+                          : pl.portions.summary.fromTemplate}
+                        : {formatNumber(portion.totals.calories)} kcal
                         {portion.sharePercent != null
                           ? ` · ${formatNumber(portion.sharePercent)}%`
                           : ''}

@@ -42,6 +42,7 @@ function AppShell() {
   )
   const [tableReloadToken, setTableReloadToken] = useState(0)
   const [mealsReloadToken, setMealsReloadToken] = useState(0)
+  const [portionsReloadToken, setPortionsReloadToken] = useState(0)
   const [editingProduct, setEditingProduct] = useState<ProductResponse | null>(null)
   const [editingMeal, setEditingMeal] = useState<MealResponse | null>(null)
 
@@ -66,6 +67,9 @@ function AppShell() {
     }
     if (next === 'mealsTable') {
       setMealsReloadToken((token) => token + 1)
+    }
+    if (next === 'portions') {
+      setPortionsReloadToken((token) => token + 1)
     }
   }
 
@@ -128,7 +132,7 @@ function AppShell() {
 
       {mountedViews.has('portions') ? (
         <KeepAliveScreen active={screen === 'portions'}>
-          <PortionsBoard />
+          <PortionsBoard reloadToken={portionsReloadToken} />
         </KeepAliveScreen>
       ) : null}
 
