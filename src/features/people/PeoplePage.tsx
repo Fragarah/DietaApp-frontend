@@ -35,6 +35,9 @@ function buildPayload(draft: PersonDraft): UpsertPersonPayload | string {
 
   const mealTargets: UpsertPersonPayload['mealTargets'] = []
   for (const target of draft.mealTargets) {
+    if (target.mealCategory === 'EXTRA' && !draft.extraEnabled) {
+      continue
+    }
     if (target.mode === 'FIXED') {
       const value = parsePositive(target.value)
       if (value == null) {
@@ -312,103 +315,135 @@ export function PeoplePage() {
                   <div className="person-card__meals">
                     <h2>{pl.people.mealsTitle}</h2>
                     <ul className="meal-target-list">
-                      {draft.mealTargets.map((target) => (
-                        <li key={target.mealCategory} className="meal-target-row">
-                          <span className="meal-target-row__label">
-                            {pl.meal.categories[target.mealCategory]}
-                          </span>
-                          <div className="meal-target-row__toggles" role="group">
-                            <button
-                              type="button"
-                              className={`chip${target.unit === 'PERCENT' ? ' chip--active' : ''}`}
-                              onClick={() =>
-                                patchTarget(draft.clientKey, target.mealCategory, {
-                                  unit: 'PERCENT' satisfies TargetUnit,
-                                })
-                              }
-                            >
-                              {pl.people.units.percent}
-                            </button>
-                            <button
-                              type="button"
-                              className={`chip${target.unit === 'KCAL' ? ' chip--active' : ''}`}
-                              onClick={() =>
-                                patchTarget(draft.clientKey, target.mealCategory, {
-                                  unit: 'KCAL' satisfies TargetUnit,
-                                })
-                              }
-                            >
-                              {pl.people.units.kcal}
-                            </button>
-                            <button
-                              type="button"
-                              className={`chip${target.mode === 'FIXED' ? ' chip--active' : ''}`}
-                              onClick={() =>
-                                patchTarget(draft.clientKey, target.mealCategory, {
-                                  mode: 'FIXED' satisfies TargetMode,
-                                })
-                              }
-                            >
-                              {pl.people.modes.fixed}
-                            </button>
-                            <button
-                              type="button"
-                              className={`chip${target.mode === 'RANGE' ? ' chip--active' : ''}`}
-                              onClick={() =>
-                                patchTarget(draft.clientKey, target.mealCategory, {
-                                  mode: 'RANGE' satisfies TargetMode,
-                                })
-                              }
-                            >
-                              {pl.people.modes.range}
-                            </button>
-                          </div>
-                          {target.mode === 'FIXED' ? (
-                            <label className="people-field people-field--compact">
-                              <span>{pl.people.fields.value}</span>
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={target.value}
-                                onChange={(event) =>
-                                  patchTarget(draft.clientKey, target.mealCategory, {
-                                    value: event.target.value,
-                                  })
-                                }
-                              />
-                            </label>
-                          ) : (
-                            <div className="meal-target-row__range">
-                              <label className="people-field people-field--compact">
-                                <span>{pl.people.fields.min}</span>
+                      {draft.mealTargets.map((target) => {
+                        const isExtra = target.mealCategory === 'EXTRA'
+                        const showControls = !isExtra || draft.extraEnabled
+
+                        return (
+                          <li
+                            key={target.mealCategory}
+                            className={`meal-target-row${isExtra ? ' meal-target-row--extra' : ''}${
+                              isExtra && !draft.extraEnabled ? ' meal-target-row--extra-off' : ''
+                            }`}
+                          >
+                            {isExtra ? (
+                              <label className="meal-target-row__check">
                                 <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={target.minValue}
+                                  type="checkbox"
+                                  checked={draft.extraEnabled}
                                   onChange={(event) =>
-                                    patchTarget(draft.clientKey, target.mealCategory, {
-                                      minValue: event.target.value,
+                                    patchDraft(draft.clientKey, {
+                                      extraEnabled: event.target.checked,
                                     })
                                   }
                                 />
+                                <span>{pl.meal.categories.EXTRA}</span>
                               </label>
-                              <label className="people-field people-field--compact">
-                                <span>{pl.people.fields.max}</span>
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={target.maxValue}
-                                  onChange={(event) =>
-                                    patchTarget(draft.clientKey, target.mealCategory, {
-                                      maxValue: event.target.value,
-                                    })
-                                  }
-                                />
-                              </label>
-                            </div>
-                          )}
-                        </li>
-                      ))}
+                            ) : (
+                              <span className="meal-target-row__label">
+                                {pl.meal.categories[target.mealCategory]}
+                              </span>
+                            )}
+
+                            {showControls ? (
+                              <>
+                                <div className="meal-target-row__toggles" role="group">
+                                  <button
+                                    type="button"
+                                    className={`chip${target.unit === 'PERCENT' ? ' chip--active' : ''}`}
+                                    onClick={() =>
+                                      patchTarget(draft.clientKey, target.mealCategory, {
+                                        unit: 'PERCENT' satisfies TargetUnit,
+                                      })
+                                    }
+                                  >
+                                    {pl.people.units.percent}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`chip${target.unit === 'KCAL' ? ' chip--active' : ''}`}
+                                    onClick={() =>
+                                      patchTarget(draft.clientKey, target.mealCategory, {
+                                        unit: 'KCAL' satisfies TargetUnit,
+                                      })
+                                    }
+                                  >
+                                    {pl.people.units.kcal}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`chip${target.mode === 'FIXED' ? ' chip--active' : ''}`}
+                                    onClick={() =>
+                                      patchTarget(draft.clientKey, target.mealCategory, {
+                                        mode: 'FIXED' satisfies TargetMode,
+                                      })
+                                    }
+                                  >
+                                    {pl.people.modes.fixed}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={`chip${target.mode === 'RANGE' ? ' chip--active' : ''}`}
+                                    onClick={() =>
+                                      patchTarget(draft.clientKey, target.mealCategory, {
+                                        mode: 'RANGE' satisfies TargetMode,
+                                      })
+                                    }
+                                  >
+                                    {pl.people.modes.range}
+                                  </button>
+                                </div>
+                                {target.mode === 'FIXED' ? (
+                                  <label className="people-field people-field--compact">
+                                    <span>{pl.people.fields.value}</span>
+                                    <input
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={target.value}
+                                      onChange={(event) =>
+                                        patchTarget(draft.clientKey, target.mealCategory, {
+                                          value: event.target.value,
+                                        })
+                                      }
+                                    />
+                                  </label>
+                                ) : (
+                                  <div className="meal-target-row__range">
+                                    <label className="people-field people-field--compact">
+                                      <span>{pl.people.fields.min}</span>
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={target.minValue}
+                                        onChange={(event) =>
+                                          patchTarget(draft.clientKey, target.mealCategory, {
+                                            minValue: event.target.value,
+                                          })
+                                        }
+                                      />
+                                    </label>
+                                    <label className="people-field people-field--compact">
+                                      <span>{pl.people.fields.max}</span>
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={target.maxValue}
+                                        onChange={(event) =>
+                                          patchTarget(draft.clientKey, target.mealCategory, {
+                                            maxValue: event.target.value,
+                                          })
+                                        }
+                                      />
+                                    </label>
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <p className="meal-target-row__hint">{pl.people.extraToggle}</p>
+                            )}
+                          </li>
+                        )
+                      })}
                     </ul>
                   </div>
 

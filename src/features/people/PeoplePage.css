@@ -208,6 +208,31 @@
   font-weight: 700;
 }
 
+.meal-target-row__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.meal-target-row__check input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.meal-target-row--extra-off {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.meal-target-row__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 .meal-target-row__toggles {
   display: flex;
   flex-wrap: wrap;

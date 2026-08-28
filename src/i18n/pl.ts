@@ -34,6 +34,7 @@ export const pl = {
     loading: 'Ładowanie osób…',
     empty: 'Brak zapisanych osób. Dodaj pierwszą.',
     mealsTitle: 'Cele posiłków (orientacyjne)',
+    extraToggle: 'Opcjonalny — poza 4 posiłkami (25/25/35/15)',
     unnamed: 'bez nazwy',
     fields: {
       name: 'Nazwa',
