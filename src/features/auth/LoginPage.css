@@ -46,39 +46,36 @@
   font-size: 0.92rem;
 }
 
-.login-page__google {
-  display: flex;
+.login-page__google-btn {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  min-height: 2.75rem;
-}
-
-.login-page__google--busy {
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.login-page__fallback {
-  margin-top: 0.85rem;
+  gap: 0.7rem;
   width: 100%;
   max-width: 320px;
-  border: 1px solid var(--line);
-  border-radius: 0.65rem;
-  background: transparent;
-  color: var(--muted);
+  min-height: 2.75rem;
+  border: 1px solid #747775;
+  border-radius: 0.35rem;
+  background: #fff;
+  color: #1f1f1f;
   padding: 0.65rem 0.9rem;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 550;
   cursor: pointer;
 }
 
-.login-page__fallback:hover:not(:disabled) {
-  color: var(--ink);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+.login-page__google-btn:hover:not(:disabled) {
+  background: #f7f8f8;
 }
 
-.login-page__fallback:disabled {
-  opacity: 0.5;
+.login-page__google-btn:disabled {
+  opacity: 0.55;
   cursor: not-allowed;
+}
+
+.login-page__google-icon {
+  display: inline-flex;
 }
 
 .login-page__busy {

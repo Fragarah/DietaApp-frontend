@@ -7,6 +7,7 @@ export const pl = {
     signingIn: 'Logowanie…',
     loading: 'Ładowanie…',
     fallbackButton: 'Spróbuj ponownie (Google)',
+    continueWithGoogle: 'Kontynuuj przy użyciu konta Google',
     missingClientId: 'Brak VITE_GOOGLE_CLIENT_ID w konfiguracji frontendu.',
     scriptFailed: 'Nie udało się załadować logowania Google. Odśwież stronę.',
     googleNoCredential: 'Google nie zwróciło tokena. Spróbuj ponownie.',
