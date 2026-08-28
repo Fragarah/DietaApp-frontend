@@ -1,24 +1,8 @@
 import type { Category, CreateProductPayload, ProductResponse } from './types'
-
-const API_URL = import.meta.env.VITE_API_URL ?? ''
-
-async function parseError(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as { detail?: string; title?: string }
-    if (body.detail) {
-      return body.detail
-    }
-    if (body.title) {
-      return body.title
-    }
-  } catch {
-    // ignore JSON parse errors
-  }
-  return `HTTP ${response.status}`
-}
+import { apiFetch, parseError } from '../../shared/api/http'
 
 export async function fetchCategories(): Promise<Category[]> {
-  const response = await fetch(`${API_URL}/api/categories`)
+  const response = await apiFetch('/api/categories')
   if (!response.ok) {
     throw new Error(await parseError(response))
   }
@@ -26,7 +10,7 @@ export async function fetchCategories(): Promise<Category[]> {
 }
 
 export async function fetchProducts(): Promise<ProductResponse[]> {
-  const response = await fetch(`${API_URL}/api/products`)
+  const response = await apiFetch('/api/products')
   if (!response.ok) {
     throw new Error(await parseError(response))
   }
@@ -34,7 +18,7 @@ export async function fetchProducts(): Promise<ProductResponse[]> {
 }
 
 export async function createProduct(payload: CreateProductPayload): Promise<ProductResponse> {
-  const response = await fetch(`${API_URL}/api/products`, {
+  const response = await apiFetch('/api/products', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -51,7 +35,7 @@ export async function createProduct(payload: CreateProductPayload): Promise<Prod
 }
 
 export async function deleteProduct(id: number): Promise<void> {
-  const response = await fetch(`${API_URL}/api/products/${id}`, {
+  const response = await apiFetch(`/api/products/${id}`, {
     method: 'DELETE',
   })
 
@@ -64,7 +48,7 @@ export async function updateProduct(
   id: number,
   payload: CreateProductPayload,
 ): Promise<ProductResponse> {
-  const response = await fetch(`${API_URL}/api/products/${id}`, {
+  const response = await apiFetch(`/api/products/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

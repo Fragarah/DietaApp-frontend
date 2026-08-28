@@ -1,0 +1,284 @@
+.meals-table-card {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.meals-table-card__header {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.meals-table-card__brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+.meals-table-card__header h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 650;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.meals-table-card__subtitle {
+  margin: 0;
+  color: var(--muted);
+  max-width: 42rem;
+}
+
+.meals-table-filters {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.meals-table-filters__search {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 28rem;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+
+.meals-table-filters__search span {
+  font-weight: 600;
+}
+
+.meals-table-filters__search input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  color: var(--ink);
+}
+
+.meals-table-filters__search input:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.meals-table-filters__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.meals-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 0.45rem 0.85rem;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.meals-chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  color: var(--accent);
+}
+
+.meals-chip--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+:root[data-theme='dark'] .meals-chip--active {
+  color: #102018;
+}
+
+.meals-table-card__banner {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.meals-table-card__banner--error {
+  background: var(--error-bg);
+  color: var(--error-ink);
+}
+
+.meals-table-card__banner--success {
+  background: var(--success-bg);
+  color: var(--success-ink);
+}
+
+.meals-table-card__status {
+  margin: 0;
+  color: var(--muted);
+}
+
+.meals-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 10px 30px var(--shadow);
+}
+
+.meals-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 820px;
+}
+
+.meals-table th,
+.meals-table td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.meals-table th {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 80%, var(--mix-base));
+  white-space: nowrap;
+}
+
+.meals-table td {
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.meals-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.meals-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.meals-table__actions-col {
+  width: 6.5rem;
+  text-align: center;
+}
+
+.meals-table__actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.meals-table .btn-edit,
+.meals-table .btn-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.meals-table .btn-edit {
+  color: var(--accent);
+}
+
+.meals-table .btn-edit:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.meals-table .btn-delete {
+  color: var(--danger);
+}
+
+.meals-table .btn-delete:hover {
+  background: var(--error-bg);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+}
+
+.meals-table-card .confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(10, 16, 12, 0.55);
+}
+
+.meals-table-card .confirm-dialog {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.25rem 1.35rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 18px 40px var(--shadow);
+  color: var(--ink);
+}
+
+.meals-table-card .confirm-dialog h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+
+.meals-table-card .confirm-dialog p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.meals-table-card .confirm-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.35rem;
+}
+
+.meals-table-card .btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.meals-table-card .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.meals-table-card .btn--secondary {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.meals-table-card .btn--danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+:root[data-theme='dark'] .meals-table-card .btn--danger {
+  color: #1a0c0c;
+}

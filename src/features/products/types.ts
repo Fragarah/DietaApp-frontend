@@ -19,6 +19,11 @@ export function isFixedOneGramUnit(unitName: string): boolean {
   return unitName === 'gram'
 }
 
+/** Jednostki niepodzielne (zakup sztukami / opakowaniami). */
+export function isCountableUnit(unitName: string): boolean {
+  return unitName === 'sztuka' || unitName === 'opakowanie'
+}
+
 export type CreateProductPayload = {
   name: string
   categoryId: number
@@ -51,4 +56,10 @@ export type ProductResponse = {
     gramWeight: number
     isDefault: boolean
   }[]
+}
+
+export function getDefaultPortion(
+  product: ProductResponse,
+): ProductResponse['portions'][number] | null {
+  return product.portions.find((portion) => portion.isDefault) ?? product.portions[0] ?? null
 }
