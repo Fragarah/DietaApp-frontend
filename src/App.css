@@ -15,6 +15,29 @@
   font-size: 1rem;
 }
 
+.app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: min(1100px, 100%);
+  margin: 0 auto 1rem;
+  min-height: 2.6rem;
+}
+
+.app-topbar__start {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.app-topbar__end {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .app-screen[hidden] {
   display: none !important;
 }

@@ -114,8 +114,16 @@ function AppShell() {
 
   return (
     <main className="app-shell">
-      {user ? <UserMenu user={user} onLogout={logout} /> : null}
-      <ThemeToggle />
+      <header className="app-topbar">
+        <div className="app-topbar__start">
+          {user ? (
+            <UserMenu user={user} onLogout={logout} activeView={navView} />
+          ) : null}
+        </div>
+        <div className="app-topbar__end">
+          <ThemeToggle />
+        </div>
+      </header>
       <AppNav activeView={navView} onChange={handleViewChange} />
 
       {mountedViews.has('portions') ? (
@@ -179,7 +187,7 @@ function App() {
   if (status === 'loading') {
     return (
       <main className="app-shell app-shell--boot">
-        <ThemeToggle />
+        <ThemeToggle floating />
         <p className="app-boot">{pl.auth.loading}</p>
       </main>
     )
@@ -188,7 +196,7 @@ function App() {
   if (status === 'anonymous') {
     return (
       <>
-        <ThemeToggle />
+        <ThemeToggle floating />
         <LoginPage />
       </>
     )

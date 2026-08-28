@@ -33,7 +33,11 @@ function MoonIcon() {
   )
 }
 
-export function ThemeToggle() {
+type ThemeToggleProps = {
+  floating?: boolean
+}
+
+export function ThemeToggle({ floating = false }: ThemeToggleProps) {
   const [theme, setTheme] = useState<Theme>(() => {
     const initial = getStoredTheme()
     applyTheme(initial)
@@ -46,7 +50,7 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      className="theme-toggle"
+      className={`theme-toggle${floating ? ' theme-toggle--floating' : ''}`}
       onClick={() => setTheme((current) => toggleTheme(current))}
       aria-label={label}
       title={label}

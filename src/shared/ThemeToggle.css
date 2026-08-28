@@ -1,11 +1,8 @@
 .theme-toggle {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 20;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 2.6rem;
   height: 2.6rem;
   border: 1px solid var(--line);
@@ -37,8 +34,16 @@
   height: 1.25rem;
 }
 
+/* Login page: brak topbara aplikacji — zostaw pływający przycisk. */
+.theme-toggle--floating {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 20;
+}
+
 @media (max-width: 720px) {
-  .theme-toggle {
+  .theme-toggle--floating {
     top: 0.75rem;
     right: 0.75rem;
   }
