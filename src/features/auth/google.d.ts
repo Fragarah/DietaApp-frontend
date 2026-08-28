@@ -3,12 +3,22 @@ export type GoogleCredentialResponse = {
   select_by?: string
 }
 
+export type GooglePromptNotification = {
+  isNotDisplayed: () => boolean
+  isSkippedMoment: () => boolean
+  isDismissedMoment: () => boolean
+  getNotDisplayedReason: () => string
+  getSkippedReason: () => string
+  getDismissedReason: () => string
+}
+
 export type GoogleAccountsId = {
   initialize: (config: {
     client_id: string
     callback: (response: GoogleCredentialResponse) => void
     auto_select?: boolean
     cancel_on_tap_outside?: boolean
+    use_fedcm_for_prompt?: boolean
   }) => void
   renderButton: (
     parent: HTMLElement,
@@ -19,9 +29,11 @@ export type GoogleAccountsId = {
       shape?: 'rectangular' | 'pill' | 'circle' | 'square'
       width?: number
       locale?: string
+      click_listener?: () => void
     },
   ) => void
-  prompt: () => void
+  prompt: (momentListener?: (notification: GooglePromptNotification) => void) => void
+  cancel: () => void
 }
 
 declare global {

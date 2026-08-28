@@ -6,8 +6,17 @@ export const pl = {
     logout: 'Wyloguj',
     signingIn: 'Logowanie…',
     loading: 'Ładowanie…',
+    fallbackButton: 'Spróbuj ponownie (Google)',
     missingClientId: 'Brak VITE_GOOGLE_CLIENT_ID w konfiguracji frontendu.',
     scriptFailed: 'Nie udało się załadować logowania Google. Odśwież stronę.',
+    googleNoCredential: 'Google nie zwróciło tokena. Spróbuj ponownie.',
+    googleUnregisteredOrigin:
+      'Ten adres strony nie jest dodany w Google OAuth (Authorized JavaScript origins). Dodaj https://dieta-app-frontend.vercel.app.',
+    googleInvalidClient: 'Nieprawidłowy Google Client ID — sprawdź Vercel i Render.',
+    googleCancelled: 'Logowanie anulowane albo zablokowane przez przeglądarkę.',
+    googleSecureRequired: 'Google wymaga HTTPS.',
+    googleBrowserUnsupported: 'Ta przeglądarka nie obsługuje logowania Google.',
+    googlePromptFailed: 'Google nie pokazało okna logowania ({reason}).',
   },
   nav: {
     portions: 'Porcje',

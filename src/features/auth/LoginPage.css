@@ -57,6 +57,30 @@
   pointer-events: none;
 }
 
+.login-page__fallback {
+  margin-top: 0.85rem;
+  width: 100%;
+  max-width: 320px;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.65rem 0.9rem;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.login-page__fallback:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.login-page__fallback:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .login-page__busy {
   margin: 0.85rem 0 0;
   color: var(--muted);

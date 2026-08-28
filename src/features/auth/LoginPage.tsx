@@ -30,11 +30,31 @@ function loadGoogleScript(): Promise<void> {
   })
 }
 
+function describeGooglePromptFailure(reason: string): string {
+  switch (reason) {
+    case 'unregistered_origin':
+      return pl.auth.googleUnregisteredOrigin
+    case 'invalid_client':
+      return pl.auth.googleInvalidClient
+    case 'opt_out_or_no_session':
+    case 'suppressed_by_user':
+    case 'user_cancel':
+      return pl.auth.googleCancelled
+    case 'secure_http_required':
+      return pl.auth.googleSecureRequired
+    case 'browser_not_supported':
+      return pl.auth.googleBrowserUnsupported
+    default:
+      return pl.auth.googlePromptFailed.replace('{reason}', reason || 'unknown')
+  }
+}
+
 export function LoginPage() {
   const { signInWithGoogleIdToken, loginError, clearLoginError } = useAuth()
   const buttonHostRef = useRef<HTMLDivElement>(null)
   const [scriptError, setScriptError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) {
@@ -55,9 +75,11 @@ export function LoginPage() {
           client_id: GOOGLE_CLIENT_ID!,
           callback: (response) => {
             if (!response.credential) {
+              setScriptError(pl.auth.googleNoCredential)
               return
             }
             clearLoginError()
+            setScriptError(null)
             setBusy(true)
             void signInWithGoogleIdToken(response.credential).finally(() => {
               setBusy(false)
@@ -65,6 +87,7 @@ export function LoginPage() {
           },
           auto_select: false,
           cancel_on_tap_outside: true,
+          use_fedcm_for_prompt: true,
         })
 
         buttonHostRef.current.innerHTML = ''
@@ -75,7 +98,14 @@ export function LoginPage() {
           shape: 'rectangular',
           width: 320,
           locale: 'pl',
+          click_listener: () => {
+            clearLoginError()
+            setScriptError(null)
+          },
         })
+        if (!cancelled) {
+          setReady(true)
+        }
       } catch {
         if (!cancelled) {
           setScriptError(pl.auth.scriptFailed)
@@ -86,8 +116,27 @@ export function LoginPage() {
     void setupGoogleButton()
     return () => {
       cancelled = true
+      window.google?.accounts.id.cancel()
     }
   }, [clearLoginError, signInWithGoogleIdToken])
+
+  function handleFallbackClick() {
+    if (!window.google?.accounts?.id) {
+      setScriptError(pl.auth.scriptFailed)
+      return
+    }
+    clearLoginError()
+    setScriptError(null)
+    window.google.accounts.id.prompt((notification) => {
+      if (notification.isNotDisplayed()) {
+        setScriptError(describeGooglePromptFailure(notification.getNotDisplayedReason()))
+        return
+      }
+      if (notification.isSkippedMoment()) {
+        setScriptError(describeGooglePromptFailure(notification.getSkippedReason()))
+      }
+    })
+  }
 
   const errorMessage = loginError ?? scriptError
 
@@ -111,6 +160,15 @@ export function LoginPage() {
           className={`login-page__google${busy ? ' login-page__google--busy' : ''}`}
           aria-busy={busy}
         />
+
+        <button
+          type="button"
+          className="login-page__fallback"
+          onClick={handleFallbackClick}
+          disabled={!ready || busy}
+        >
+          {pl.auth.fallbackButton}
+        </button>
 
         {busy ? <p className="login-page__busy">{pl.auth.signingIn}</p> : null}
       </section>
