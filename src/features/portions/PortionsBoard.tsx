@@ -11,7 +11,7 @@ import {
   isCountableUnit,
   type ProductResponse,
 } from '../products/types'
-import { buildPersonColumn, computePortionsForPeople } from './portionMath'
+import { buildPersonColumn, computePortionsForPeople, type PersonPortionView } from './portionMath'
 import './PortionsBoard.css'
 
 function formatNumber(value: number): string {
@@ -155,7 +155,7 @@ export function PortionsBoard() {
     return map
   }, [products])
 
-  const portionsByPersonId = useMemo(() => {
+  const portionsByPersonId = useMemo((): Map<number, PersonPortionView | null> => {
     if (!selectedMeal || personColumns.length === 0) {
       return new Map()
     }
