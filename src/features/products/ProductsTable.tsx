@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { pl } from '../../i18n/pl'
-import { deleteProduct, fetchProducts } from './api'
-import type { ProductResponse } from './types'
+import { deleteProduct, fetchCategories, fetchProducts } from './api'
+import type { Category, ProductResponse } from './types'
 import './ProductsTable.css'
+
+type NameSort = 'asc' | 'desc'
 
 function formatNumber(value: number): string {
   return Number(value).toLocaleString('pl-PL', {
@@ -18,8 +20,17 @@ function formatDefaultPortion(product: ProductResponse): string {
   return `${portion.unitName} (${formatNumber(portion.gramWeight)} g)`
 }
 
-function sortProductsByName(products: ProductResponse[]): ProductResponse[] {
-  return [...products].sort((a, b) => a.name.localeCompare(b.name, 'pl', { sensitivity: 'base' }))
+function sortProductsByName(products: ProductResponse[], direction: NameSort): ProductResponse[] {
+  const factor = direction === 'asc' ? 1 : -1
+  return [...products].sort(
+    (a, b) => factor * a.name.localeCompare(b.name, 'pl', { sensitivity: 'base' }),
+  )
+}
+
+function sortCategoriesByName(categories: Category[]): Category[] {
+  return [...categories].sort((a, b) =>
+    a.name.localeCompare(b.name, 'pl', { sensitivity: 'base' }),
+  )
 }
 
 type ProductsTableProps = {
@@ -29,21 +40,26 @@ type ProductsTableProps = {
 
 export function ProductsTable({ reloadToken = 0, onEdit }: ProductsTableProps) {
   const [products, setProducts] = useState<ProductResponse[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [productToDelete, setProductToDelete] = useState<ProductResponse | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [nameSort, setNameSort] = useState<NameSort>('asc')
+  const [categoryFilter, setCategoryFilter] = useState<number | ''>('')
 
   const loadProducts = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchProducts()
-      setProducts(sortProductsByName(data))
+      const [productData, categoryData] = await Promise.all([fetchProducts(), fetchCategories()])
+      setProducts(productData)
+      setCategories(sortCategoriesByName(categoryData))
     } catch {
       setError(pl.errors.loadProducts)
       setProducts([])
+      setCategories([])
     } finally {
       setLoading(false)
     }
@@ -52,6 +68,14 @@ export function ProductsTable({ reloadToken = 0, onEdit }: ProductsTableProps) {
   useEffect(() => {
     void loadProducts()
   }, [loadProducts, reloadToken])
+
+  const filteredProducts = useMemo(() => {
+    const filtered =
+      categoryFilter === ''
+        ? products
+        : products.filter((product) => product.categoryId === categoryFilter)
+    return sortProductsByName(filtered, nameSort)
+  }, [products, categoryFilter, nameSort])
 
   async function confirmDelete() {
     if (!productToDelete) {
@@ -73,6 +97,10 @@ export function ProductsTable({ reloadToken = 0, onEdit }: ProductsTableProps) {
     }
   }
 
+  function toggleNameSort() {
+    setNameSort((current) => (current === 'asc' ? 'desc' : 'asc'))
+  }
+
   return (
     <section className="products-table-card">
       <header className="products-table-card__header">
@@ -80,6 +108,34 @@ export function ProductsTable({ reloadToken = 0, onEdit }: ProductsTableProps) {
         <h1>{pl.table.title}</h1>
         <p className="products-table-card__subtitle">{pl.table.subtitle}</p>
       </header>
+
+      {!loading && categories.length > 0 ? (
+        <div
+          className="products-table-filters__chips"
+          role="group"
+          aria-label={pl.table.categoryFilterLabel}
+        >
+          <button
+            type="button"
+            className={`products-chip${categoryFilter === '' ? ' products-chip--active' : ''}`}
+            onClick={() => setCategoryFilter('')}
+          >
+            {pl.table.allCategories}
+          </button>
+          {categories.map((category) => (
+            <button
+              key={category.id}
+              type="button"
+              className={`products-chip${
+                categoryFilter === category.id ? ' products-chip--active' : ''
+              }`}
+              onClick={() => setCategoryFilter(category.id)}
+            >
+              {category.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {successMessage ? (
         <p className="products-table-card__banner products-table-card__banner--success" role="status">
@@ -102,12 +158,31 @@ export function ProductsTable({ reloadToken = 0, onEdit }: ProductsTableProps) {
         <p className="products-table-card__status">{pl.table.empty}</p>
       ) : null}
 
-      {!loading && products.length > 0 ? (
+      {!loading && products.length > 0 && filteredProducts.length === 0 ? (
+        <p className="products-table-card__status">{pl.table.noMatches}</p>
+      ) : null}
+
+      {!loading && filteredProducts.length > 0 ? (
         <div className="products-table-wrap">
           <table className="products-table">
             <thead>
               <tr>
-                <th>{pl.table.columns.name}</th>
+                <th>
+                  <button
+                    type="button"
+                    className="products-table__sort"
+                    onClick={toggleNameSort}
+                    aria-label={
+                      nameSort === 'asc' ? pl.table.sortNameDesc : pl.table.sortNameAsc
+                    }
+                    title={nameSort === 'asc' ? pl.table.sortNameDesc : pl.table.sortNameAsc}
+                  >
+                    <span>{pl.table.columns.name}</span>
+                    <span className="products-table__sort-icon" aria-hidden="true">
+                      {nameSort === 'asc' ? '↑' : '↓'}
+                    </span>
+                  </button>
+                </th>
                 <th>{pl.table.columns.category}</th>
                 <th>{pl.table.columns.baseUnit}</th>
                 <th>{pl.table.columns.calories}</th>
@@ -119,7 +194,7 @@ export function ProductsTable({ reloadToken = 0, onEdit }: ProductsTableProps) {
               </tr>
             </thead>
             <tbody>
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <tr key={product.id}>
                   <td>{product.name}</td>
                   <td>{product.categoryName}</td>

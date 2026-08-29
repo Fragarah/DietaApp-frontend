@@ -56,6 +56,14 @@
   gap: 1rem;
 }
 
+.meal-form__type-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(8rem, 0.55fr);
+  gap: 1rem;
+  align-items: start;
+}
+
 .meal-section {
   display: grid;
   gap: 1rem;
@@ -223,7 +231,8 @@
 }
 
 .meal-form .field input,
-.meal-form .field select {
+.meal-form .field select,
+.meal-form .field__notes {
   width: 100%;
   border: 1px solid var(--line);
   background: var(--panel);
@@ -233,8 +242,18 @@
   color: var(--ink);
 }
 
+.meal-form .field__notes {
+  display: block;
+  min-height: calc(1.2em + 1.4rem);
+  resize: none;
+  overflow: hidden;
+  line-height: 1.2;
+  field-sizing: content;
+}
+
 .meal-form .field input:focus,
-.meal-form .field select:focus {
+.meal-form .field select:focus,
+.meal-form .field__notes:focus {
   outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
   outline-offset: 1px;
   border-color: var(--accent);
@@ -320,6 +339,7 @@
 
 @media (max-width: 820px) {
   .meal-form__grid,
+  .meal-form__type-row,
   .meal-row--ingredient-base-sauce,
   .meal-row--serving,
   .meal-summary__grid {

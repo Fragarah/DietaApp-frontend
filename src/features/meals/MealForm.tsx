@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type DragEvent, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react'
 import { pl } from '../../i18n/pl'
 import { countableUnitLabel, formatCountableUnit } from '../../i18n/plCount'
 import { fetchProducts } from '../products/api'
@@ -156,6 +156,7 @@ export function MealForm({ meal, onCancel, onSaved }: MealFormProps) {
     meal?.plannedDays != null ? String(meal.plannedDays) : '1',
   )
   const [notes, setNotes] = useState(meal?.notes ?? '')
+  const notesRef = useRef<HTMLTextAreaElement>(null)
   const [ingredients, setIngredients] = useState<MealIngredientInput[]>(() =>
     meal
       ? meal.ingredients?.length
@@ -219,6 +220,15 @@ export function MealForm({ meal, onCancel, onSaved }: MealFormProps) {
     setIngredients(ingredientsFromMeal(meal, productById))
     setDisplayUnitsReady(true)
   }, [meal, products, productById, displayUnitsReady])
+
+  useEffect(() => {
+    const el = notesRef.current
+    if (!el) {
+      return
+    }
+    el.style.height = '0px'
+    el.style.height = `${el.scrollHeight}px`
+  }, [notes])
 
   const recipePreview = useMemo(() => {
     let calories = 0
@@ -464,42 +474,66 @@ export function MealForm({ meal, onCancel, onSaved }: MealFormProps) {
             ) : null}
           </label>
 
-          <fieldset className="field field--span">
-            <legend>{pl.meal.fields.mealType}</legend>
-            <div className="segmented">
-              {MEAL_TYPES.map((type) => (
-                <label key={type}>
-                  <input
-                    type="radio"
-                    name="mealType"
-                    value={type}
-                    checked={mealType === type}
-                    onChange={() => setMealType(type)}
-                  />
-                  {pl.meal.types[type]}
-                </label>
-              ))}
-            </div>
-            <p className="field__hint">{pl.meal.hints.types[mealType]}</p>
-          </fieldset>
-
           {mealType === 'WHOLE' ? (
-            <label className="field">
-              <span>{pl.meal.fields.plannedDays}</span>
-              <input
-                inputMode="numeric"
-                value={plannedDays}
-                onChange={(event) => setPlannedDays(event.target.value)}
-              />
-              {errors.plannedDays ? (
-                <span className="field__error">{errors.plannedDays}</span>
-              ) : null}
-            </label>
-          ) : null}
+            <div className="meal-form__type-row">
+              <fieldset className="field">
+                <legend>{pl.meal.fields.mealType}</legend>
+                <div className="segmented">
+                  {MEAL_TYPES.map((type) => (
+                    <label key={type}>
+                      <input
+                        type="radio"
+                        name="mealType"
+                        value={type}
+                        checked={mealType === type}
+                        onChange={() => setMealType(type)}
+                      />
+                      {pl.meal.types[type]}
+                    </label>
+                  ))}
+                </div>
+                <p className="field__hint">{pl.meal.hints.types[mealType]}</p>
+              </fieldset>
 
-          <label className={`field${mealType === 'WHOLE' ? '' : ' field--span'}`}>
+              <label className="field">
+                <span>{pl.meal.fields.plannedDays}</span>
+                <input
+                  inputMode="numeric"
+                  value={plannedDays}
+                  onChange={(event) => setPlannedDays(event.target.value)}
+                />
+                {errors.plannedDays ? (
+                  <span className="field__error">{errors.plannedDays}</span>
+                ) : null}
+              </label>
+            </div>
+          ) : (
+            <fieldset className="field field--span">
+              <legend>{pl.meal.fields.mealType}</legend>
+              <div className="segmented">
+                {MEAL_TYPES.map((type) => (
+                  <label key={type}>
+                    <input
+                      type="radio"
+                      name="mealType"
+                      value={type}
+                      checked={mealType === type}
+                      onChange={() => setMealType(type)}
+                    />
+                    {pl.meal.types[type]}
+                  </label>
+                ))}
+              </div>
+              <p className="field__hint">{pl.meal.hints.types[mealType]}</p>
+            </fieldset>
+          )}
+
+          <label className="field field--span">
             <span>{pl.meal.fields.notes}</span>
-            <input
+            <textarea
+              ref={notesRef}
+              className="field__notes"
+              rows={1}
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               placeholder={pl.meal.placeholders.notes}

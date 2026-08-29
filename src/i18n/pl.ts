@@ -92,6 +92,11 @@ export const pl = {
     subtitle: 'Produkty zapisane w bazie — wartości odżywcze na 100 g lub 100 ml.',
     loading: 'Ładowanie produktów…',
     empty: 'Brak produktów w bazie. Dodaj pierwszy produkt.',
+    noMatches: 'Brak produktów pasujących do filtrów.',
+    allCategories: 'Wszystkie',
+    categoryFilterLabel: 'Filtr kategorii produktów',
+    sortNameAsc: 'Sortuj nazwy A–Z',
+    sortNameDesc: 'Sortuj nazwy Z–A',
     columns: {
       name: 'Nazwa',
       category: 'Kategoria',
