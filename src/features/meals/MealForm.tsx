@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type DragEvent, type FormEvent } from 'react'
 import { pl } from '../../i18n/pl'
 import { countableUnitLabel, formatCountableUnit } from '../../i18n/plCount'
 import { fetchProducts } from '../products/api'
@@ -14,6 +14,7 @@ import {
   MEAL_TYPES,
   type MealCategory,
   type MealIngredientInput,
+  type MealIngredientResponse,
   type MealResponse,
   type MealType,
 } from './types'
@@ -35,9 +36,21 @@ type QuantityMode = {
 }
 
 const emptyIngredient = (): MealIngredientInput => ({
+  clientKey: crypto.randomUUID(),
   productId: '',
   quantityBase: '',
 })
+
+function sortIngredientResponses(ingredients: MealIngredientResponse[]): MealIngredientResponse[] {
+  return [...ingredients].sort((a, b) => {
+    const orderA = a.sortOrder ?? a.id
+    const orderB = b.sortOrder ?? b.id
+    if (orderA !== orderB) {
+      return orderA - orderB
+    }
+    return a.id - b.id
+  })
+}
 
 function toNumber(value: string): number {
   const normalized = value.replace(',', '.').trim()
@@ -100,16 +113,31 @@ function ingredientsFromMeal(
   if (!meal.ingredients || meal.ingredients.length === 0) {
     return [emptyIngredient()]
   }
-  return [...meal.ingredients]
-    .sort((a, b) => a.id - b.id)
-    .map((ingredient) => {
-      const product = productById.get(ingredient.productId)
-      const mode = resolveQuantityMode(product)
-      return {
-        productId: String(ingredient.productId),
-        quantityBase: toDisplayQuantity(Number(ingredient.quantityBase), mode),
-      }
-    })
+  return sortIngredientResponses(meal.ingredients).map((ingredient) => {
+    const product = productById.get(ingredient.productId)
+    const mode = resolveQuantityMode(product)
+    return {
+      clientKey: `ing-${ingredient.id}`,
+      productId: String(ingredient.productId),
+      quantityBase: toDisplayQuantity(Number(ingredient.quantityBase), mode),
+    }
+  })
+}
+
+function reorderList<T>(list: T[], fromIndex: number, toIndex: number): T[] {
+  if (
+    fromIndex === toIndex ||
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= list.length ||
+    toIndex >= list.length
+  ) {
+    return list
+  }
+  const next = [...list]
+  const [moved] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, moved)
+  return next
 }
 
 export function MealForm({ meal, onCancel, onSaved }: MealFormProps) {
@@ -131,16 +159,17 @@ export function MealForm({ meal, onCancel, onSaved }: MealFormProps) {
   const [ingredients, setIngredients] = useState<MealIngredientInput[]>(() =>
     meal
       ? meal.ingredients?.length
-        ? [...meal.ingredients]
-            .sort((a, b) => a.id - b.id)
-            .map((ingredient) => ({
-              productId: String(ingredient.productId),
-              quantityBase: String(ingredient.quantityBase),
-            }))
+        ? sortIngredientResponses(meal.ingredients).map((ingredient) => ({
+            clientKey: `ing-${ingredient.id}`,
+            productId: String(ingredient.productId),
+            quantityBase: String(ingredient.quantityBase),
+          }))
         : [emptyIngredient()]
       : [emptyIngredient()],
   )
   const [displayUnitsReady, setDisplayUnitsReady] = useState(!isEdit)
+  const [dragFromIndex, setDragFromIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   const [errors, setErrors] = useState<FormErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -337,6 +366,41 @@ export function MealForm({ meal, onCancel, onSaved }: MealFormProps) {
     )
   }
 
+  function handleIngredientDragStart(index: number, event: DragEvent<HTMLButtonElement>) {
+    setDragFromIndex(index)
+    setDragOverIndex(index)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(index))
+  }
+
+  function handleIngredientDragOver(index: number, event: DragEvent<HTMLLIElement>) {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  function handleIngredientDrop(index: number, event: DragEvent<HTMLLIElement>) {
+    event.preventDefault()
+    const from =
+      dragFromIndex ??
+      Number(event.dataTransfer.getData('text/plain'))
+    if (Number.isNaN(from)) {
+      setDragFromIndex(null)
+      setDragOverIndex(null)
+      return
+    }
+    setIngredients((current) => reorderList(current, from, index))
+    setDragFromIndex(null)
+    setDragOverIndex(null)
+  }
+
+  function handleIngredientDragEnd() {
+    setDragFromIndex(null)
+    setDragOverIndex(null)
+  }
+
   return (
     <form className="meal-form" onSubmit={handleSubmit} noValidate>
       <header className="meal-form__header">
@@ -466,9 +530,48 @@ export function MealForm({ meal, onCancel, onSaved }: MealFormProps) {
                 : mode.unitLabel
                   ? `${pl.meal.fields.quantityBase} (${mode.unitLabel})`
                   : pl.meal.fields.quantityBase
+            const rowClass = [
+              'meal-row',
+              'meal-row--ingredient',
+              dragFromIndex === index ? 'meal-row--dragging' : '',
+              dragOverIndex === index && dragFromIndex != null && dragFromIndex !== index
+                ? 'meal-row--drop-target'
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' ')
 
             return (
-              <li key={index} className="meal-row meal-row--ingredient">
+              <li
+                key={ingredient.clientKey}
+                className={rowClass}
+                onDragOver={(event) => handleIngredientDragOver(index, event)}
+                onDrop={(event) => handleIngredientDrop(index, event)}
+              >
+                <button
+                  type="button"
+                  className="meal-row__drag"
+                  draggable={ingredients.length > 1}
+                  disabled={ingredients.length === 1}
+                  aria-label={pl.meal.actions.reorderIngredient}
+                  title={pl.meal.actions.reorderIngredient}
+                  onDragStart={(event) => handleIngredientDragStart(index, event)}
+                  onDragEnd={handleIngredientDragEnd}
+                >
+                  <svg
+                    className="meal-row__drag-icon"
+                    viewBox="0 0 16 16"
+                    width="16"
+                    height="16"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M8 1.5 4.5 5h7L8 1.5Zm0 13L4.5 11h7L8 14.5Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                </button>
+
                 <ProductSearchField
                   label={pl.meal.fields.product}
                   products={products}

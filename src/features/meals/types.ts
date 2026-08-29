@@ -5,6 +5,8 @@ export const MEAL_CATEGORIES = ['SNIADANIE', 'LUNCH', 'OBIAD', 'DESER', 'EXTRA']
 export type MealCategory = (typeof MEAL_CATEGORIES)[number]
 
 export type MealIngredientInput = {
+  /** Stabilny klucz wiersza (DnD / React key). */
+  clientKey: string
   productId: string
   quantityBase: string
 }
@@ -31,6 +33,7 @@ export type MealIngredientResponse = {
   baseUnit?: string
   quantityBase: number
   component: null
+  sortOrder?: number
   calories?: number
   protein?: number
   carbs?: number

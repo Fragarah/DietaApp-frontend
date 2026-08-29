@@ -276,6 +276,7 @@ export const pl = {
     actions: {
       addIngredient: 'Dodaj składnik',
       removeIngredient: 'Usuń',
+      reorderIngredient: 'Zmień kolejność składnika',
       submit: 'Zapisz posiłek',
       saveChanges: 'Zapisz zmiany',
       submitting: 'Zapisywanie…',
