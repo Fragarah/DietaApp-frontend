@@ -169,7 +169,7 @@
 }
 
 .meals-table__actions-col {
-  width: 6.5rem;
+  width: 9rem;
   text-align: center;
 }
 
@@ -181,6 +181,7 @@
 }
 
 .meals-table .btn-edit,
+.meals-table .btn-copy,
 .meals-table .btn-delete {
   display: inline-flex;
   align-items: center;
@@ -202,6 +203,21 @@
 .meals-table .btn-edit:hover {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.meals-table .btn-copy {
+  color: var(--muted);
+}
+
+.meals-table .btn-copy:hover:not(:disabled) {
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+
+.meals-table .btn-copy:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .meals-table .btn-delete {

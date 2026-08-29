@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { pl } from '../../i18n/pl'
-import { deleteMeal, fetchMeals } from './api'
-import { MEAL_CATEGORIES, type MealCategory, type MealResponse } from './types'
+import { createMeal, deleteMeal, fetchMeals } from './api'
+import {
+  MEAL_CATEGORIES,
+  type CreateMealPayload,
+  type MealCategory,
+  type MealResponse,
+} from './types'
 import './MealsTable.css'
 
 function formatNumber(value: number): string {
@@ -22,6 +27,23 @@ function normalize(text: string): string {
     .replace(/\p{M}/gu, '')
 }
 
+function buildCopyPayload(meal: MealResponse): CreateMealPayload {
+  return {
+    name: `${meal.name}${pl.meal.table.copyNameSuffix}`,
+    mealType: meal.mealType,
+    mealCategory: meal.mealCategory,
+    plannedDays: meal.plannedDays,
+    notes: meal.notes,
+    ingredients: (meal.ingredients ?? []).map((ingredient, index) => ({
+      productId: ingredient.productId,
+      quantityBase: Number(ingredient.quantityBase),
+      component: null,
+      sortOrder: index,
+    })),
+    servings: [],
+  }
+}
+
 type MealsTableProps = {
   reloadToken?: number
   onEdit?: (meal: MealResponse) => void
@@ -34,6 +56,7 @@ export function MealsTable({ reloadToken = 0, onEdit }: MealsTableProps) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [mealToDelete, setMealToDelete] = useState<MealResponse | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [copyingId, setCopyingId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<MealCategory | ''>('')
 
@@ -67,6 +90,22 @@ export function MealsTable({ reloadToken = 0, onEdit }: MealsTableProps) {
       return normalize(meal.name).includes(needle)
     })
   }, [meals, searchQuery, categoryFilter])
+
+  async function handleCopy(meal: MealResponse) {
+    setCopyingId(meal.id)
+    setError(null)
+    setSuccessMessage(null)
+    try {
+      const copied = await createMeal(buildCopyPayload(meal))
+      setMeals((current) => sortMealsByName([...current, copied]))
+      setSuccessMessage(pl.meal.table.copySuccess.replace('{name}', copied.name))
+      onEdit?.(copied)
+    } catch {
+      setError(pl.meal.table.copyFailed)
+    } finally {
+      setCopyingId(null)
+    }
+  }
 
   async function confirmDelete() {
     if (!mealToDelete) {
@@ -196,6 +235,16 @@ export function MealsTable({ reloadToken = 0, onEdit }: MealsTableProps) {
                         onClick={() => onEdit?.(meal)}
                       >
                         ✎
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-copy"
+                        aria-label={`${pl.meal.table.copyMeal}: ${meal.name}`}
+                        title={pl.meal.table.copyMeal}
+                        disabled={copyingId === meal.id}
+                        onClick={() => void handleCopy(meal)}
+                      >
+                        ⎘
                       </button>
                       <button
                         type="button"
