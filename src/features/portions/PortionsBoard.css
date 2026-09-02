@@ -538,8 +538,7 @@
   justify-content: space-between;
 }
 
-.portion-line__title span,
-.portion-line__macros {
+.portion-line__title span {
   color: var(--muted);
   font-size: 0.85rem;
 }

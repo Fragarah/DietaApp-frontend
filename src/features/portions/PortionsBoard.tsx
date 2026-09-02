@@ -18,6 +18,10 @@ function formatNumber(value: number): string {
   return value.toLocaleString('pl-PL', { maximumFractionDigits: 2 })
 }
 
+function formatGramsWhole(value: number): string {
+  return Math.round(value).toLocaleString('pl-PL')
+}
+
 /** Odchylenie kcal od celu: ≤5% ok, ≤10% ostrzeżenie, inaczej poza zakresem. */
 function kcalAccuracyTone(
   actualKcal: number,
@@ -619,7 +623,7 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
                       <ul className="portion-column__lines">
                         <li className="portion-line portion-line--total">
                           <div className="portion-line__mass">
-                            {formatNumber(totalMassGrams)} {pl.meal.summary.grams}
+                            {formatGramsWhole(totalMassGrams)} {pl.meal.summary.grams}
                           </div>
                           <div className="portion-line__body">
                             <div className="portion-line__title">
@@ -630,7 +634,7 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
                         {portion.lines.map((line) => (
                           <li key={line.mealIngredientId} className="portion-line">
                             <div className="portion-line__mass">
-                              {formatNumber(line.quantityGrams)} {pl.meal.summary.grams}
+                              {formatGramsWhole(line.quantityGrams)} {pl.meal.summary.grams}
                             </div>
                             <div className="portion-line__body">
                               <div className="portion-line__title">
@@ -642,11 +646,6 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
                                   {formatCountableUnit(line.baseUnit, line.quantityBase)}
                                 </div>
                               ) : null}
-                              <div className="portion-line__macros">
-                                {formatNumber(line.calories)} kcal ·{' '}
-                                {formatNumber(line.protein)}/{formatNumber(line.carbs)}/
-                                {formatNumber(line.fat)} {pl.meal.summary.grams}
-                              </div>
                             </div>
                           </li>
                         ))}
