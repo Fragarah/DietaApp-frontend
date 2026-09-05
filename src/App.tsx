@@ -104,6 +104,7 @@ function AppShell() {
     ensureMounted('mealsTable')
     setScreen('mealsTable')
     setMealsReloadToken((token) => token + 1)
+    setPortionsReloadToken((token) => token + 1)
   }
 
   function handleEditMealSaved() {
@@ -111,6 +112,7 @@ function AppShell() {
     ensureMounted('mealsTable')
     setScreen('mealsTable')
     setMealsReloadToken((token) => token + 1)
+    setPortionsReloadToken((token) => token + 1)
   }
 
   const navView: AppView =
@@ -176,6 +178,7 @@ function AppShell() {
 
       {screen === 'editMeal' && editingMeal ? (
         <MealForm
+          key={editingMeal.id}
           meal={editingMeal}
           onCancel={handleEditMealCancel}
           onSaved={handleEditMealSaved}

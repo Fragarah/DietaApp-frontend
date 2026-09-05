@@ -32,13 +32,18 @@ function buildCopyPayload(meal: MealResponse): CreateMealPayload {
     name: `${meal.name}${pl.meal.table.copyNameSuffix}`,
     mealType: meal.mealType,
     mealCategory: meal.mealCategory,
-    plannedDays: meal.plannedDays,
+    plannedDays:
+      meal.mealType === 'WHOLE'
+        ? meal.plannedDays != null && meal.plannedDays >= 1
+          ? meal.plannedDays
+          : 1
+        : null,
     notes: meal.notes,
     ingredients: (meal.ingredients ?? []).map((ingredient, index) => ({
-      productId: ingredient.productId,
+      productId: Number(ingredient.productId),
       quantityBase: Number(ingredient.quantityBase),
       component: null,
-      sortOrder: index,
+      sortOrder: ingredient.sortOrder ?? index,
     })),
     servings: [],
   }
@@ -96,8 +101,14 @@ export function MealsTable({ reloadToken = 0, onEdit }: MealsTableProps) {
     setError(null)
     setSuccessMessage(null)
     try {
-      const copied = await createMeal(buildCopyPayload(meal))
-      setMeals((current) => sortMealsByName([...current, copied]))
+      const payload = buildCopyPayload(meal)
+      if (payload.ingredients.length === 0 || payload.ingredients.some((item) => !(item.quantityBase > 0))) {
+        setError(pl.meal.table.copyFailed)
+        return
+      }
+      const copied = await createMeal(payload)
+      const data = await fetchMeals()
+      setMeals(sortMealsByName(data))
       setSuccessMessage(pl.meal.table.copySuccess.replace('{name}', copied.name))
       onEdit?.(copied)
     } catch {

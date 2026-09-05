@@ -1,6 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { pl } from '../../i18n/pl'
 import { formatCountableUnit } from '../../i18n/plCount'
+import { assignMealPlan, deleteMealPlanEntry, fetchMealPlan } from '../plan/api'
+import { PlanGrid, PlanSlotPicker, ShoppingListPreview } from '../plan/PlanUi'
+import { exportPlanPdf } from '../plan/exportPlanPdf'
+import { buildShoppingList } from '../plan/shoppingList'
+import {
+  addDaysIso,
+  eachDayIso,
+  formatPlanRangeLabel,
+  getPlanLengthDays,
+  getStoredPlanStartDate,
+  setPlanLengthDays,
+  setStoredPlanStartDate,
+  todayIsoDate,
+} from '../plan/settings'
+import type { MealPlanEntry } from '../plan/types'
 import { fetchMeals } from '../meals/api'
 import { MEAL_CATEGORIES, type MealCategory, type MealResponse } from '../meals/types'
 import { fetchPersons } from '../people/api'
@@ -54,6 +69,18 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
   const [selectedPersonIds, setSelectedPersonIds] = useState<number[]>([])
   const [peoplePanelOpen, setPeoplePanelOpen] = useState(true)
   const mealPickerRef = useRef<HTMLDivElement>(null)
+  const [planStartDate, setPlanStartDate] = useState(
+    () => getStoredPlanStartDate() ?? todayIsoDate(),
+  )
+  const [planLengthDays, setPlanLengthDaysState] = useState(() => getPlanLengthDays())
+  const [planEntries, setPlanEntries] = useState<MealPlanEntry[]>([])
+  const [planLoading, setPlanLoading] = useState(false)
+  const [planError, setPlanError] = useState<string | null>(null)
+  const [planMessage, setPlanMessage] = useState<string | null>(null)
+  const [slotPickerOpen, setSlotPickerOpen] = useState(false)
+  const [assigningPlan, setAssigningPlan] = useState(false)
+  const [shoppingOpen, setShoppingOpen] = useState(false)
+  const [printingPdf, setPrintingPdf] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -104,6 +131,37 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
       cancelled = true
     }
   }, [reloadToken])
+
+  const planDays = useMemo(
+    () => eachDayIso(planStartDate, planLengthDays),
+    [planStartDate, planLengthDays],
+  )
+  const planEndDate = useMemo(
+    () => addDaysIso(planStartDate, planLengthDays - 1),
+    [planStartDate, planLengthDays],
+  )
+
+  const loadPlan = useCallback(async () => {
+    setPlanLoading(true)
+    setPlanError(null)
+    try {
+      const data = await fetchMealPlan(planStartDate, planEndDate)
+      setPlanEntries(data)
+    } catch {
+      setPlanError(pl.portions.plan.loadFailed)
+      setPlanEntries([])
+    } finally {
+      setPlanLoading(false)
+    }
+  }, [planStartDate, planEndDate])
+
+  useEffect(() => {
+    void loadPlan()
+  }, [loadPlan, reloadToken])
+
+  useEffect(() => {
+    setStoredPlanStartDate(planStartDate)
+  }, [planStartDate])
 
   useEffect(() => {
     if (!pickerOpen) {
@@ -272,17 +330,15 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
 
   const filteredMeals = useMemo(() => {
     const needle = mealQuery.trim().toLocaleLowerCase('pl-PL')
-    return meals
-      .filter((meal) => {
-        if (categoryFilters.size > 0 && !categoryFilters.has(meal.mealCategory)) {
-          return false
-        }
-        if (!needle) {
-          return true
-        }
-        return meal.name.toLocaleLowerCase('pl-PL').includes(needle)
-      })
-      .slice(0, 12)
+    return meals.filter((meal) => {
+      if (categoryFilters.size > 0 && !categoryFilters.has(meal.mealCategory)) {
+        return false
+      }
+      if (!needle) {
+        return true
+      }
+      return meal.name.toLocaleLowerCase('pl-PL').includes(needle)
+    })
   }, [meals, mealQuery, categoryFilters])
 
   const peopleSummary = useMemo(() => {
@@ -327,6 +383,123 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
     setPickerOpen(false)
   }
 
+  const mealsById = useMemo(() => {
+    const map = new Map<number, MealResponse>()
+    for (const meal of meals) {
+      map.set(meal.id, meal)
+    }
+    return map
+  }, [meals])
+
+  const planPeople = useMemo(
+    () =>
+      selectedPersonIds
+        .map((id) => savedPeople.find((person) => person.id === id))
+        .filter((person): person is PersonResponse => person != null),
+    [savedPeople, selectedPersonIds],
+  )
+
+  const shoppingItems = useMemo(
+    () =>
+      buildShoppingList({
+        entries: planEntries,
+        mealsById,
+        people: planPeople,
+        productById,
+      }),
+    [planEntries, mealsById, planPeople, productById],
+  )
+
+  const shoppingEmptyReason =
+    planPeople.length === 0 ? 'people' : planEntries.length === 0 ? 'plan' : null
+
+  function handlePlanStartChange(value: string) {
+    if (!value) {
+      return
+    }
+    setPlanStartDate(value)
+  }
+
+  function handlePlanLengthChange(value: string) {
+    const parsed = Number(value)
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 31) {
+      return
+    }
+    setPlanLengthDays(parsed)
+    setPlanLengthDaysState(parsed)
+  }
+
+  async function handleAssignToPlan(planDate: string, replaceExisting: boolean) {
+    if (!selectedMeal) {
+      return
+    }
+    setAssigningPlan(true)
+    setPlanError(null)
+    setPlanMessage(null)
+    try {
+      const mode =
+        selectedMeal.mealType === 'WHOLE' && (selectedMeal.plannedDays ?? 0) > 1
+          ? 'WHOLE_BATCH'
+          : 'SINGLE'
+      await assignMealPlan({
+        mealId: selectedMeal.id,
+        startDate: planDate,
+        mode,
+        replaceExisting,
+      })
+      setSlotPickerOpen(false)
+      setPlanMessage(pl.portions.plan.assignSuccess)
+      await loadPlan()
+    } catch {
+      setPlanError(pl.portions.plan.assignFailed)
+    } finally {
+      setAssigningPlan(false)
+    }
+  }
+
+  async function handleDeletePlanEntry(entry: MealPlanEntry) {
+    const isBatch = entry.batchGroupId != null && (entry.batchTotal ?? 0) > 1
+    const confirmed = isBatch
+      ? window.confirm(
+          pl.portions.plan.deleteGroupConfirm.replace(
+            '{days}',
+            String(entry.batchTotal ?? entry.plannedDays ?? 1),
+          ),
+        )
+      : window.confirm(pl.portions.plan.deleteConfirm.replace('{name}', entry.mealName))
+    if (!confirmed) {
+      return
+    }
+    setPlanError(null)
+    try {
+      await deleteMealPlanEntry(entry.id, isBatch)
+      await loadPlan()
+    } catch {
+      setPlanError(pl.portions.plan.deleteFailed)
+    }
+  }
+
+  async function handleExportPdf() {
+    setPrintingPdf(true)
+    setPlanError(null)
+    try {
+      await exportPlanPdf({
+        planStartDate,
+        planLengthDays,
+        days: planDays,
+        entries: planEntries,
+        mealsById,
+        people: planPeople,
+        productById,
+        shoppingItems,
+      })
+    } catch {
+      setPlanError(pl.portions.plan.pdfExportFailed)
+    } finally {
+      setPrintingPdf(false)
+    }
+  }
+
   return (
     <section className="portions-board">
       <header className="portions-board__header">
@@ -337,6 +510,16 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
       {error ? (
         <p className="portions-board__banner portions-board__banner--error" role="alert">
           {error}
+        </p>
+      ) : null}
+      {planError ? (
+        <p className="portions-board__banner portions-board__banner--error" role="alert">
+          {planError}
+        </p>
+      ) : null}
+      {planMessage ? (
+        <p className="portions-board__banner" role="status">
+          {planMessage}
         </p>
       ) : null}
 
@@ -403,48 +586,139 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
         )}
       </section>
 
-      <section className="portions-meal-section">
-        <label className="portions-field portions-field--meal">
-          <span>{pl.portions.fields.meal}</span>
-          <div className="portions-meal-picker" ref={mealPickerRef}>
-            <input
-              type="search"
-              value={mealQuery}
-              disabled={loading || Boolean(error)}
-              placeholder={
-                loading ? pl.portions.loadingMeals : pl.portions.placeholders.mealSearch
-              }
-              onChange={(event) => {
-                setMealQuery(event.target.value)
-                setPickerOpen(true)
-                if (selectedMeal && event.target.value !== selectedMeal.name) {
-                  setSelectedMealId(null)
-                }
-              }}
-              onFocus={() => setPickerOpen(true)}
-            />
-            {pickerOpen && !loading && !error ? (
-              <ul className="portions-meal-picker__list" role="listbox">
-                {filteredMeals.length === 0 ? (
-                  <li className="portions-meal-picker__empty">
-                    {pl.portions.errors.noMealMatches}
-                  </li>
-                ) : (
-                  filteredMeals.map((meal) => (
-                    <li key={meal.id}>
-                      <button type="button" onMouseDown={() => chooseMeal(meal)}>
-                        <span>{meal.name}</span>
-                        <span className="portions-meal-picker__meta">
-                          {pl.meal.categories[meal.mealCategory]} · {pl.meal.types[meal.mealType]}
-                        </span>
-                      </button>
-                    </li>
-                  ))
-                )}
-              </ul>
-            ) : null}
-          </div>
+      <section className="plan-range" aria-label={pl.portions.plan.rangeLabel}>
+        <label className="plan-range__calendar">
+          <svg
+            className="plan-range__icon"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.75" />
+            <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+          </svg>
+          <span className="visually-hidden">{pl.portions.plan.calendar}</span>
+          <input
+            type="date"
+            value={planStartDate}
+            onChange={(event) => handlePlanStartChange(event.target.value)}
+          />
         </label>
+        <span className="plan-range__label">
+          {formatPlanRangeLabel(planStartDate, planLengthDays)}
+        </span>
+        <label className="plan-range__length">
+          <span>{pl.portions.plan.lengthLabel}</span>
+          <input
+            type="number"
+            min={1}
+            max={31}
+            value={planLengthDays}
+            onChange={(event) => handlePlanLengthChange(event.target.value)}
+          />
+        </label>
+        <div className="plan-range__actions">
+          <button
+            type="button"
+            className="plan-range__shopping-btn"
+            onClick={() => setShoppingOpen(true)}
+          >
+            {pl.portions.plan.shoppingPreview}
+          </button>
+          <button
+            type="button"
+            className="plan-range__icon-btn"
+            title={pl.portions.plan.printPdf}
+            aria-label={pl.portions.plan.printPdf}
+            disabled={printingPdf}
+            onClick={() => {
+              void handleExportPdf()
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M7 9V4h10v5M7 15H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <rect
+                x="7"
+                y="13"
+                width="10"
+                height="7"
+                rx="1"
+                stroke="currentColor"
+                strokeWidth="1.75"
+              />
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <section className="portions-meal-section">
+        <div className="portions-meal-row">
+          <label className="portions-field portions-field--meal">
+            <span>{pl.portions.fields.meal}</span>
+            <div className="portions-meal-picker" ref={mealPickerRef}>
+              <input
+                type="search"
+                value={mealQuery}
+                disabled={loading || Boolean(error)}
+                placeholder={
+                  loading ? pl.portions.loadingMeals : pl.portions.placeholders.mealSearch
+                }
+                onChange={(event) => {
+                  setMealQuery(event.target.value)
+                  setPickerOpen(true)
+                  if (selectedMeal && event.target.value !== selectedMeal.name) {
+                    setSelectedMealId(null)
+                  }
+                }}
+                onFocus={() => setPickerOpen(true)}
+              />
+              {pickerOpen && !loading && !error ? (
+                <ul className="portions-meal-picker__list" role="listbox">
+                  {filteredMeals.length === 0 ? (
+                    <li className="portions-meal-picker__empty">
+                      {pl.portions.errors.noMealMatches}
+                    </li>
+                  ) : (
+                    filteredMeals.map((meal) => (
+                      <li key={meal.id}>
+                        <button type="button" onMouseDown={() => chooseMeal(meal)}>
+                          <span>{meal.name}</span>
+                          <span className="portions-meal-picker__meta">
+                            {pl.meal.categories[meal.mealCategory]} · {pl.meal.types[meal.mealType]}
+                          </span>
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              ) : null}
+            </div>
+          </label>
+          {selectedMeal ? (
+            <button
+              type="button"
+              className="plan-add-btn"
+              title={pl.portions.plan.addToPlan}
+              aria-label={pl.portions.plan.addToPlan}
+              disabled={!planStartDate || assigningPlan}
+              onClick={() => {
+                setPlanMessage(null)
+                setPlanError(null)
+                setSlotPickerOpen(true)
+              }}
+            >
+              +
+            </button>
+          ) : null}
+        </div>
 
         <div
           className="portions-category-tags"
@@ -659,6 +933,47 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
           </div>
         </>
       )}
+
+      <section className="plan-preview" aria-labelledby="plan-preview-title">
+        <h2 id="plan-preview-title">{pl.portions.plan.title}</h2>
+        {planLoading ? (
+          <p className="portions-board__status">{pl.portions.loadingMeals}</p>
+        ) : (
+          <PlanGrid
+            days={planDays}
+            entries={planEntries}
+            mealsById={mealsById}
+            people={planPeople}
+            productById={productById}
+            onDelete={(entry) => {
+              void handleDeletePlanEntry(entry)
+            }}
+          />
+        )}
+      </section>
+
+      {selectedMeal ? (
+        <PlanSlotPicker
+          open={slotPickerOpen}
+          meal={selectedMeal}
+          days={planDays}
+          entries={planEntries}
+          assigning={assigningPlan}
+          error={planError}
+          onClose={() => setSlotPickerOpen(false)}
+          onPickDay={(planDate, replaceExisting) => {
+            void handleAssignToPlan(planDate, replaceExisting)
+          }}
+        />
+      ) : null}
+
+      <ShoppingListPreview
+        open={shoppingOpen}
+        rangeLabel={formatPlanRangeLabel(planStartDate, planLengthDays)}
+        items={shoppingItems}
+        emptyReason={shoppingEmptyReason}
+        onClose={() => setShoppingOpen(false)}
+      />
     </section>
   )
 }
