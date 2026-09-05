@@ -7,7 +7,7 @@ import { pl } from '../../i18n/pl'
 import { formatCountableUnit } from '../../i18n/plCount'
 import { formatPlanDayLabel } from './settings'
 import type { ShoppingListItem } from './shoppingList'
-import { PLAN_SLOT_CATEGORIES, type MealPlanEntry } from './types'
+import { PLAN_SLOT_CATEGORIES, type MealPlanEntry, type PlanSlotCategory } from './types'
 import './Plan.css'
 
 type PlanSlotPickerProps = {
@@ -267,8 +267,8 @@ function formatGrams(value: number): string {
   return Math.round(value).toLocaleString('pl-PL')
 }
 
-function categoryLabel(category: (typeof PLAN_SLOT_CATEGORIES)[number]): string {
-  const labels: Record<(typeof PLAN_SLOT_CATEGORIES)[number], string> = {
+function categoryLabel(category: PlanSlotCategory): string {
+  const labels: Record<PlanSlotCategory, string> = {
     SNIADANIE: 'Śniadanie',
     LUNCH: 'Lunch',
     OBIAD: 'Obiad',
