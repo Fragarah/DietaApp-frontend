@@ -210,7 +210,7 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
       fontSize: 6.5,
       textColor: INK,
       lineColor: RULE,
-      lineWidth: 0.15,
+      lineWidth: 0.2,
       cellPadding: { top: 1.4, right: 1.3, bottom: 1.4, left: 1.3 },
       valign: 'top',
       overflow: 'linebreak',
@@ -226,8 +226,8 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
       valign: 'middle',
       fontSize: 8,
       cellPadding: 1.6,
-      lineWidth: 0.25,
-      lineColor: INK,
+      lineColor: RULE,
+      lineWidth: 0.2,
     },
     columnStyles: {
       0: {
@@ -235,11 +235,15 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
         cellWidth: dayColWidth,
         valign: 'middle',
         fontSize: 7,
+        lineColor: RULE,
+        lineWidth: 0.2,
       },
-      1: { cellWidth: mealColWidth },
-      2: { cellWidth: mealColWidth },
-      3: { cellWidth: mealColWidth },
+      1: { cellWidth: mealColWidth, lineColor: RULE, lineWidth: 0.2 },
+      2: { cellWidth: mealColWidth, lineColor: RULE, lineWidth: 0.2 },
+      3: { cellWidth: mealColWidth, lineColor: RULE, lineWidth: 0.2 },
     },
+    tableLineColor: RULE,
+    tableLineWidth: 0.2,
     didParseCell: (data) => {
       if (data.section !== 'body' || data.column.index === 0) {
         return
