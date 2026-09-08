@@ -59,6 +59,7 @@ type PlanCellContent = {
 type PlanTableCell = {
   content: string
   planCell: PlanCellContent
+  minCellHeight: number
 }
 
 export async function exportPlanPdf(input: PlanPdfInput): Promise<void> {
@@ -170,6 +171,11 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
     ...PLAN_SLOT_CATEGORIES.map((category) => pl.meal.categories[category]),
   ]
 
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const tableWidth = pageWidth - 16
+  const dayColWidth = 22
+  const mealColWidth = (tableWidth - dayColWidth) / PLAN_SLOT_CATEGORIES.length
+
   const body = input.days.map((date) => [
     formatPlanDayLabel(date),
     ...PLAN_SLOT_CATEGORIES.map((category) => {
@@ -178,11 +184,13 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
         return pl.portions.plan.pdfEmptyCell
       }
       return buildPlanTableCell(
+        doc,
         entry,
         input.mealsById.get(entry.mealId) ?? null,
         input.people,
         selectedPeopleDailyTotal,
         input.productById,
+        mealColWidth,
       )
     }),
   ])
@@ -192,6 +200,7 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
     head: [head],
     body,
     theme: 'grid',
+    tableWidth,
     styles: {
       font: FONT_REGULAR,
       fontStyle: 'normal',
@@ -218,7 +227,16 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
       lineColor: INK,
     },
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 24, valign: 'middle', fontSize: 7 },
+      0: {
+        fontStyle: 'bold',
+        cellWidth: dayColWidth,
+        valign: 'middle',
+        fontSize: 7,
+      },
+      1: { cellWidth: mealColWidth },
+      2: { cellWidth: mealColWidth },
+      3: { cellWidth: mealColWidth },
+      4: { cellWidth: mealColWidth },
     },
     didParseCell: (data) => {
       if (data.section !== 'body' || data.column.index === 0) {
@@ -229,6 +247,9 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
       const raw = data.cell.raw
       if (isPlanTableCell(raw)) {
         ;(data.cell as { __planCell?: PlanCellContent }).__planCell = raw.planCell
+        data.cell.styles.minCellHeight = raw.minCellHeight
+        // Pusty tekst — wysokość bierze minCellHeight; treść rysujemy ręcznie.
+        data.cell.text = ['']
       }
     },
     didDrawCell: (data) => {
@@ -242,6 +263,7 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
       drawFormattedPlanCell(doc, data.cell.x, data.cell.y, data.cell.width, data.cell.height, planCell)
     },
     margin: { left: 8, right: 8, top: 10, bottom: 10 },
+    rowPageBreak: 'avoid',
   })
 }
 
@@ -250,16 +272,19 @@ function isPlanTableCell(value: unknown): value is PlanTableCell {
     typeof value === 'object' &&
     value != null &&
     'planCell' in value &&
-    'content' in value
+    'content' in value &&
+    'minCellHeight' in value
   )
 }
 
 function buildPlanTableCell(
+  doc: jsPDF,
   entry: MealPlanEntry,
   meal: MealResponse | null,
   people: PersonResponse[],
   selectedPeopleDailyTotal: number,
   productById: ProductLookup,
+  mealColWidth: number,
 ): PlanTableCell {
   const isDinner = entry.mealCategory === 'OBIAD'
   const notes =
@@ -284,7 +309,44 @@ function buildPlanTableCell(
   return {
     content: heightLines.join('\n'),
     planCell,
+    minCellHeight: estimatePlanCellHeight(doc, planCell, mealColWidth),
   }
+}
+
+function estimatePlanCellHeight(
+  doc: jsPDF,
+  planCell: PlanCellContent,
+  colWidth: number,
+): number {
+  const padX = 1.3
+  const padY = 1.4
+  const maxWidth = Math.max(16, colWidth - padX * 2)
+  let height = padY * 2 + 1
+
+  doc.setFont(FONT_BOLD, 'bold')
+  doc.setFontSize(6.2)
+  const nameLines = doc.splitTextToSize(planCell.name, maxWidth) as string[]
+  height += nameLines.length * 3.1
+
+  if (planCell.ingredients.length > 0) {
+    height += 0.5
+    doc.setFont(FONT_REGULAR, 'normal')
+    doc.setFontSize(5.4)
+    for (const ingredient of planCell.ingredients) {
+      const lines = doc.splitTextToSize(ingredient, maxWidth) as string[]
+      height += lines.length * 2.8
+    }
+  }
+
+  if (planCell.notes) {
+    height += 0.6
+    doc.setFont(FONT_ITALIC, 'italic')
+    doc.setFontSize(5.4)
+    const noteLines = doc.splitTextToSize(planCell.notes, maxWidth) as string[]
+    height += noteLines.length * 2.8
+  }
+
+  return Math.max(8, height + 1.5)
 }
 
 function buildIngredientWeightLines(
