@@ -12,7 +12,10 @@ import {
 import { getDefaultPortion, isCountableUnit } from '../products/types'
 import { formatPlanDayLabel, formatPlanRangeLabel } from './settings'
 import type { ShoppingListItem } from './shoppingList'
-import { PLAN_SLOT_CATEGORIES, type MealPlanEntry } from './types'
+import { type MealPlanEntry, type PlanSlotCategory } from './types'
+
+/** Kategorie w tabeli planu PDF (bez Obiadu — obiad tylko na osobnych stronach przepisu). */
+const PLAN_PDF_CATEGORIES = ['SNIADANIE', 'LUNCH', 'DESER'] as const satisfies readonly PlanSlotCategory[]
 
 const FONT_REGULAR = 'NotoSans'
 const FONT_BOLD = 'NotoSans'
@@ -64,7 +67,7 @@ type PlanTableCell = {
 
 export async function exportPlanPdf(input: PlanPdfInput): Promise<void> {
   const fonts = await loadFonts()
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   doc.addFileToVFS('NotoSans-Regular.ttf', fonts.regular)
   doc.addFileToVFS('NotoSans-Bold.ttf', fonts.bold)
   doc.addFileToVFS('NotoSans-Italic.ttf', fonts.italic)
@@ -168,17 +171,17 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
 
   const head = [
     pl.portions.plan.pdfDayColumn,
-    ...PLAN_SLOT_CATEGORIES.map((category) => pl.meal.categories[category]),
+    ...PLAN_PDF_CATEGORIES.map((category) => pl.meal.categories[category]),
   ]
 
   const pageWidth = doc.internal.pageSize.getWidth()
   const tableWidth = pageWidth - 16
   const dayColWidth = 22
-  const mealColWidth = (tableWidth - dayColWidth) / PLAN_SLOT_CATEGORIES.length
+  const mealColWidth = (tableWidth - dayColWidth) / PLAN_PDF_CATEGORIES.length
 
   const body = input.days.map((date) => [
     formatPlanDayLabel(date),
-    ...PLAN_SLOT_CATEGORIES.map((category) => {
+    ...PLAN_PDF_CATEGORIES.map((category) => {
       const entry = entryMap.get(`${date}|${category}`)
       if (!entry) {
         return pl.portions.plan.pdfEmptyCell
@@ -236,7 +239,6 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
       1: { cellWidth: mealColWidth },
       2: { cellWidth: mealColWidth },
       3: { cellWidth: mealColWidth },
-      4: { cellWidth: mealColWidth },
     },
     didParseCell: (data) => {
       if (data.section !== 'body' || data.column.index === 0) {
