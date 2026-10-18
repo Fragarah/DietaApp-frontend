@@ -326,6 +326,9 @@
 .plan-nutrition {
   display: grid;
   gap: 0.55rem;
+  width: max-content;
+  max-width: 100%;
+  margin-inline: auto;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -361,8 +364,7 @@
 }
 
 .plan-nutrition-table {
-  width: 100%;
-  max-width: 28rem;
+  width: auto;
   border-collapse: collapse;
   font-size: 0.78rem;
 }
