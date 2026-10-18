@@ -11,6 +11,7 @@ import { ProductsTable } from './features/products/ProductsTable'
 import type { ProductResponse } from './features/products/types'
 import { pl } from './i18n/pl'
 import { AppNav, type AppView } from './shared/AppNav'
+import { ServerWakeBanner } from './shared/ServerWakeBanner'
 import { ThemeToggle } from './shared/ThemeToggle'
 import { UserMenu } from './shared/UserMenu'
 import './App.css'
@@ -120,6 +121,7 @@ function AppShell() {
 
   return (
     <main className="app-shell">
+      <ServerWakeBanner />
       <header className="app-topbar">
         <div className="app-topbar__start">
           {user ? (

@@ -184,7 +184,13 @@ export function MealForm({ meal, onCancel, onSaved }: MealFormProps) {
       setProductsLoading(true)
       setProductsError(null)
       try {
-        const data = await fetchProducts()
+        const data = await fetchProducts({
+          onRevalidated: (next) => {
+            if (!cancelled) {
+              setProducts(next)
+            }
+          },
+        })
         if (!cancelled) {
           setProducts(data)
         }

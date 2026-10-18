@@ -84,31 +84,61 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
 
   useEffect(() => {
     let cancelled = false
+    const force = reloadToken > 0
+
+    function applyPeople(peopleData: Awaited<ReturnType<typeof fetchPersons>>) {
+      const people = [...peopleData].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
+      setSavedPeople(people)
+      setSelectedPersonIds((current) => {
+        if (current.length === 0) {
+          return people.map((person) => person.id)
+        }
+        const stillThere = current.filter((id) => people.some((person) => person.id === id))
+        return stillThere.length > 0 ? stillThere : people.map((person) => person.id)
+      })
+    }
+
+    function applyMeals(mealData: Awaited<ReturnType<typeof fetchMeals>>) {
+      setMeals(
+        [...mealData].sort((a, b) =>
+          a.name.localeCompare(b.name, 'pl', { sensitivity: 'base' }),
+        ),
+      )
+    }
 
     async function load() {
       setLoading(true)
       setError(null)
       try {
         const [mealData, peopleData, productData] = await Promise.all([
-          fetchMeals(),
-          fetchPersons(),
-          fetchProducts(),
+          fetchMeals({
+            force,
+            onRevalidated: (data) => {
+              if (!cancelled) {
+                applyMeals(data)
+              }
+            },
+          }),
+          fetchPersons({
+            force,
+            onRevalidated: (data) => {
+              if (!cancelled) {
+                applyPeople(data)
+              }
+            },
+          }),
+          fetchProducts({
+            force,
+            onRevalidated: (data) => {
+              if (!cancelled) {
+                setProducts(data)
+              }
+            },
+          }),
         ])
         if (!cancelled) {
-          setMeals(
-            [...mealData].sort((a, b) =>
-              a.name.localeCompare(b.name, 'pl', { sensitivity: 'base' }),
-            ),
-          )
-          const people = [...peopleData].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
-          setSavedPeople(people)
-          setSelectedPersonIds((current) => {
-            if (current.length === 0) {
-              return people.map((person) => person.id)
-            }
-            const stillThere = current.filter((id) => people.some((person) => person.id === id))
-            return stillThere.length > 0 ? stillThere : people.map((person) => person.id)
-          })
+          applyMeals(mealData)
+          applyPeople(peopleData)
           setProducts(productData)
         }
       } catch {

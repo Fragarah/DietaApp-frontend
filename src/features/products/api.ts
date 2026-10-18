@@ -1,7 +1,15 @@
 import type { Category, CreateProductPayload, ProductResponse } from './types'
 import { apiFetch, parseError } from '../../shared/api/http'
+import { getOrFetch, invalidateResource } from '../../shared/api/resourceCache'
 
-export async function fetchCategories(): Promise<Category[]> {
+export async function fetchCategories(options?: {
+  force?: boolean
+  onRevalidated?: (data: Category[]) => void
+}): Promise<Category[]> {
+  return getOrFetch('categories', fetchCategoriesNetwork, options)
+}
+
+async function fetchCategoriesNetwork(): Promise<Category[]> {
   const response = await apiFetch('/api/categories')
   if (!response.ok) {
     throw new Error(await parseError(response))
@@ -9,7 +17,14 @@ export async function fetchCategories(): Promise<Category[]> {
   return response.json() as Promise<Category[]>
 }
 
-export async function fetchProducts(): Promise<ProductResponse[]> {
+export async function fetchProducts(options?: {
+  force?: boolean
+  onRevalidated?: (data: ProductResponse[]) => void
+}): Promise<ProductResponse[]> {
+  return getOrFetch('products', fetchProductsNetwork, options)
+}
+
+async function fetchProductsNetwork(): Promise<ProductResponse[]> {
   const response = await apiFetch('/api/products')
   if (!response.ok) {
     throw new Error(await parseError(response))
@@ -31,6 +46,7 @@ export async function createProduct(payload: CreateProductPayload): Promise<Prod
     throw error
   }
 
+  invalidateResource('products')
   return response.json() as Promise<ProductResponse>
 }
 
@@ -42,6 +58,7 @@ export async function deleteProduct(id: number): Promise<void> {
   if (!response.ok) {
     throw new Error(await parseError(response))
   }
+  invalidateResource('products')
 }
 
 export async function updateProduct(
@@ -61,5 +78,6 @@ export async function updateProduct(
     throw error
   }
 
+  invalidateResource('products')
   return response.json() as Promise<ProductResponse>
 }

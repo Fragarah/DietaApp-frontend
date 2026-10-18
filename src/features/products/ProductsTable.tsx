@@ -49,11 +49,20 @@ export function ProductsTable({ reloadToken = 0, onEdit }: ProductsTableProps) {
   const [nameSort, setNameSort] = useState<NameSort>('asc')
   const [categoryFilter, setCategoryFilter] = useState<number | ''>('')
 
-  const loadProducts = useCallback(async () => {
+  const loadProducts = useCallback(async (force = false) => {
     setLoading(true)
     setError(null)
     try {
-      const [productData, categoryData] = await Promise.all([fetchProducts(), fetchCategories()])
+      const [productData, categoryData] = await Promise.all([
+        fetchProducts({
+          force,
+          onRevalidated: (data) => setProducts(data),
+        }),
+        fetchCategories({
+          force,
+          onRevalidated: (data) => setCategories(sortCategoriesByName(data)),
+        }),
+      ])
       setProducts(productData)
       setCategories(sortCategoriesByName(categoryData))
     } catch {
@@ -66,7 +75,7 @@ export function ProductsTable({ reloadToken = 0, onEdit }: ProductsTableProps) {
   }, [])
 
   useEffect(() => {
-    void loadProducts()
+    void loadProducts(reloadToken > 0)
   }, [loadProducts, reloadToken])
 
   const filteredProducts = useMemo(() => {

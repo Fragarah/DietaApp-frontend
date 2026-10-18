@@ -96,7 +96,13 @@ export function PeoplePage() {
       setLoading(true)
       setLoadError(null)
       try {
-        const persons = await fetchPersons()
+        const persons = await fetchPersons({
+          onRevalidated: (data) => {
+            if (!cancelled) {
+              setDrafts(data.map(personToDraft))
+            }
+          },
+        })
         if (!cancelled) {
           setDrafts(persons.map(personToDraft))
           setExpandedKeys(new Set())

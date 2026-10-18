@@ -1,7 +1,15 @@
 import { apiFetch, parseError } from '../../shared/api/http'
+import { getOrFetch, invalidateResource } from '../../shared/api/resourceCache'
 import type { PersonResponse, UpsertPersonPayload } from './types'
 
-export async function fetchPersons(): Promise<PersonResponse[]> {
+export async function fetchPersons(options?: {
+  force?: boolean
+  onRevalidated?: (data: PersonResponse[]) => void
+}): Promise<PersonResponse[]> {
+  return getOrFetch('persons', fetchPersonsNetwork, options)
+}
+
+async function fetchPersonsNetwork(): Promise<PersonResponse[]> {
   const response = await apiFetch('/api/persons')
   if (!response.ok) {
     throw new Error(await parseError(response))
@@ -18,6 +26,7 @@ export async function createPerson(payload: UpsertPersonPayload): Promise<Person
   if (!response.ok) {
     throw new Error(await parseError(response))
   }
+  invalidateResource('persons')
   return response.json() as Promise<PersonResponse>
 }
 
@@ -33,6 +42,7 @@ export async function updatePerson(
   if (!response.ok) {
     throw new Error(await parseError(response))
   }
+  invalidateResource('persons')
   return response.json() as Promise<PersonResponse>
 }
 
@@ -43,4 +53,5 @@ export async function deletePerson(id: number): Promise<void> {
   if (!response.ok) {
     throw new Error(await parseError(response))
   }
+  invalidateResource('persons')
 }

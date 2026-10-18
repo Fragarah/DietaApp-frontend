@@ -1,7 +1,15 @@
 import type { CreateMealPayload, MealResponse } from './types'
 import { apiFetch, parseError } from '../../shared/api/http'
+import { getOrFetch, invalidateResource } from '../../shared/api/resourceCache'
 
-export async function fetchMeals(): Promise<MealResponse[]> {
+export async function fetchMeals(options?: {
+  force?: boolean
+  onRevalidated?: (data: MealResponse[]) => void
+}): Promise<MealResponse[]> {
+  return getOrFetch('meals', fetchMealsNetwork, options)
+}
+
+async function fetchMealsNetwork(): Promise<MealResponse[]> {
   const response = await apiFetch('/api/meals')
   if (!response.ok) {
     throw new Error(await parseError(response))
@@ -23,6 +31,7 @@ export async function createMeal(payload: CreateMealPayload): Promise<MealRespon
     throw error
   }
 
+  invalidateResource('meals')
   return response.json() as Promise<MealResponse>
 }
 
@@ -43,6 +52,7 @@ export async function updateMeal(
     throw error
   }
 
+  invalidateResource('meals')
   return response.json() as Promise<MealResponse>
 }
 
@@ -54,4 +64,5 @@ export async function deleteMeal(id: number): Promise<void> {
   if (!response.ok) {
     throw new Error(await parseError(response))
   }
+  invalidateResource('meals')
 }

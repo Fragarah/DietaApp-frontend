@@ -1,5 +1,8 @@
 export const pl = {
   appName: 'DietaApp',
+  serverWake: {
+    message: 'Serwer się budzi — chwilę…',
+  },
   auth: {
     title: 'Zaloguj się',
     subtitle: 'Wejdź kontem Google — dane osobiste (porcje, plan) będą przypisane do Ciebie.',

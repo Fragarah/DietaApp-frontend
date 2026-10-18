@@ -65,11 +65,14 @@ export function MealsTable({ reloadToken = 0, onEdit }: MealsTableProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<MealCategory | ''>('')
 
-  const loadMeals = useCallback(async () => {
+  const loadMeals = useCallback(async (force = false) => {
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchMeals()
+      const data = await fetchMeals({
+        force,
+        onRevalidated: (next) => setMeals(sortMealsByName(next)),
+      })
       setMeals(sortMealsByName(data))
     } catch {
       setError(pl.meal.table.loadFailed)
@@ -80,7 +83,7 @@ export function MealsTable({ reloadToken = 0, onEdit }: MealsTableProps) {
   }, [])
 
   useEffect(() => {
-    void loadMeals()
+    void loadMeals(reloadToken > 0)
   }, [loadMeals, reloadToken])
 
   const filteredMeals = useMemo(() => {
@@ -107,7 +110,7 @@ export function MealsTable({ reloadToken = 0, onEdit }: MealsTableProps) {
         return
       }
       const copied = await createMeal(payload)
-      const data = await fetchMeals()
+      const data = await fetchMeals({ force: true })
       setMeals(sortMealsByName(data))
       setSuccessMessage(pl.meal.table.copySuccess.replace('{name}', copied.name))
       onEdit?.(copied)

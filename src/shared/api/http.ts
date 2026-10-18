@@ -1,3 +1,5 @@
+import { withServerWake } from './serverWake'
+
 const API_URL = import.meta.env.VITE_API_URL ?? ''
 
 const TOKEN_KEY = 'dietaapp.accessToken'
@@ -45,8 +47,10 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}): Pro
     }
   }
 
-  return fetch(`${API_URL}${path}`, {
-    ...rest,
-    headers: requestHeaders,
-  })
+  return withServerWake(
+    fetch(`${API_URL}${path}`, {
+      ...rest,
+      headers: requestHeaders,
+    }),
+  )
 }

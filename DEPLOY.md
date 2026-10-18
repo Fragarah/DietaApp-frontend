@@ -67,5 +67,8 @@ git push -u origin main
 
 ### Uwagi
 
-- Pierwsze żądanie po uśpieniu Rendera może trwać 30–60 s.
-- Bez auth każdy ze znajomością URL może dodawać produkty — auth w kolejnym etapie MVP.
+- Free Render usypia po ~15 min, Neon Free po ~5 min. Keep-alive jest w repo **backendu**:
+  sekret GitHub `PROD_HEALTH_URL` = `https://<app>.onrender.com/api/health`
+  (workflow co 5 min; szczegóły w `DietaApp/DEPLOY.md`). Pinguj `/api/health`, nigdy `/robots.txt`.
+- Bez keep-alive pierwsze żądanie po uśpieniu może trwać 30–90 s.
+
