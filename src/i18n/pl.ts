@@ -229,6 +229,7 @@ export const pl = {
       nutritionDailyTitle: 'Podsumowanie dzienne',
       nutritionRangeTitle: 'Podsumowanie zakresu ({days} dni)',
       nutritionEmpty: 'Brak posiłków w planie — podsumowanie puste.',
+      nutritionPerson: 'Imię',
       nutritionKcal: 'kcal',
       nutritionProtein: 'Białko',
       nutritionCarbs: 'Węgle',

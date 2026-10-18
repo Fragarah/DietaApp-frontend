@@ -10,7 +10,6 @@ import type { ShoppingListItem } from './shoppingList'
 import {
   buildDailyNutritionSummaries,
   sumRangeNutrition,
-  type MacroTotals,
   type PersonDayNutrition,
 } from './planNutrition'
 import {
@@ -319,58 +318,48 @@ function PlanNutritionSummary({
       {!hasEntries ? (
         <p className="plan-nutrition__hint">{pl.portions.plan.nutritionEmpty}</p>
       ) : (
-        <ul className="plan-nutrition__days">
+        <div className="plan-nutrition__days">
           {daily.map((day) => (
-            <li key={day.planDate} className="plan-nutrition__day">
+            <div key={day.planDate} className="plan-nutrition__day">
               <div className="plan-nutrition__day-label">{formatPlanDayLabel(day.planDate)}</div>
-              <ul className="plan-nutrition__people">
-                {day.people.map((person) => (
-                  <li key={person.personId} className="plan-nutrition__person">
-                    <span className="plan-nutrition__person-name">{person.personName}</span>
-                    <MacroLine totals={person.totals} />
-                  </li>
-                ))}
-              </ul>
-            </li>
+              <NutritionTable rows={day.people} />
+            </div>
           ))}
-        </ul>
+        </div>
       )}
 
       <h3 className="plan-nutrition__title">
         {pl.portions.plan.nutritionRangeTitle.replace('{days}', String(dayCount))}
       </h3>
-      <ul className="plan-nutrition__people plan-nutrition__people--range">
-        {range.map((person) => (
-          <li key={person.personId} className="plan-nutrition__person">
-            <span className="plan-nutrition__person-name">{person.personName}</span>
-            <MacroLine totals={person.totals} />
-          </li>
-        ))}
-      </ul>
+      <NutritionTable rows={range} />
     </section>
   )
 }
 
-function MacroLine({ totals }: { totals: MacroTotals }) {
+function NutritionTable({ rows }: { rows: PersonDayNutrition[] }) {
   return (
-    <dl className="plan-nutrition__macros">
-      <div>
-        <dt>{pl.portions.plan.nutritionKcal}</dt>
-        <dd>{formatMacro(totals.calories)}</dd>
-      </div>
-      <div>
-        <dt>{pl.portions.plan.nutritionProtein}</dt>
-        <dd>{formatMacro(totals.protein)} g</dd>
-      </div>
-      <div>
-        <dt>{pl.portions.plan.nutritionCarbs}</dt>
-        <dd>{formatMacro(totals.carbs)} g</dd>
-      </div>
-      <div>
-        <dt>{pl.portions.plan.nutritionFat}</dt>
-        <dd>{formatMacro(totals.fat)} g</dd>
-      </div>
-    </dl>
+    <table className="plan-nutrition-table">
+      <thead>
+        <tr>
+          <th>{pl.portions.plan.nutritionPerson}</th>
+          <th>{pl.portions.plan.nutritionKcal}</th>
+          <th>{pl.portions.plan.nutritionProtein}</th>
+          <th>{pl.portions.plan.nutritionCarbs}</th>
+          <th>{pl.portions.plan.nutritionFat}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((person) => (
+          <tr key={person.personId}>
+            <th scope="row">{person.personName}</th>
+            <td>{formatMacro(person.totals.calories)}</td>
+            <td>{formatMacro(person.totals.protein)}</td>
+            <td>{formatMacro(person.totals.carbs)}</td>
+            <td>{formatMacro(person.totals.fat)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 
