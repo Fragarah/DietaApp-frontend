@@ -226,6 +226,13 @@ export const pl = {
       pdfNoNotes: 'Brak przepisu w notatce posiłku.',
       pdfOtherCategory: 'Inne',
       pdfExportFailed: 'Nie udało się wygenerować PDF.',
+      nutritionDailyTitle: 'Podsumowanie dzienne',
+      nutritionRangeTitle: 'Podsumowanie zakresu ({days} dni)',
+      nutritionEmpty: 'Brak posiłków w planie — podsumowanie puste.',
+      nutritionKcal: 'kcal',
+      nutritionProtein: 'Białko',
+      nutritionCarbs: 'Węgle',
+      nutritionFat: 'Tłuszcz',
     },
     peoplePanel: {
       title: 'Panel osób',

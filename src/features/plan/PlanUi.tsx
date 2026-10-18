@@ -8,6 +8,12 @@ import { formatCountableUnit } from '../../i18n/plCount'
 import { formatPlanDayLabel } from './settings'
 import type { ShoppingListItem } from './shoppingList'
 import {
+  buildDailyNutritionSummaries,
+  sumRangeNutrition,
+  type MacroTotals,
+  type PersonDayNutrition,
+} from './planNutrition'
+import {
   formatPlanEntryLabel,
   peopleForPlanEntry,
   personInitial,
@@ -230,50 +236,146 @@ export function PlanGrid({
     }
   }
 
+  const dailyNutrition = buildDailyNutritionSummaries({
+    days,
+    entries,
+    mealsById,
+    people,
+    productById,
+  })
+  const rangeNutrition = sumRangeNutrition(dailyNutrition, people)
+
   return (
-    <div className="plan-grid-wrap">
-      <table className="plan-grid">
-        <thead>
-          <tr>
-            <th>Dzień</th>
-            {PLAN_SLOT_CATEGORIES.map((category) => (
-              <th key={category}>{categoryLabel(category)}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {days.map((date) => (
-            <tr key={date}>
-              <th scope="row">{formatPlanDayLabel(date)}</th>
-              {PLAN_SLOT_CATEGORIES.map((category) => {
-                const slotEntries = entriesBySlot.get(`${date}|${category}`) ?? []
-                return (
-                  <td key={category}>
-                    {slotEntries.length === 0 ? (
-                      <span className="plan-cell--empty">—</span>
-                    ) : (
-                      <div className="plan-cell-stack">
-                        {slotEntries.map((entry) => (
-                          <PlanCell
-                            key={entry.id}
-                            entry={entry}
-                            meal={mealsById.get(entry.mealId) ?? null}
-                            people={people}
-                            productById={productById}
-                            onDelete={() => onDelete(entry)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                )
-              })}
+    <div className="plan-grid-block">
+      <div className="plan-grid-wrap">
+        <table className="plan-grid">
+          <thead>
+            <tr>
+              <th>Dzień</th>
+              {PLAN_SLOT_CATEGORIES.map((category) => (
+                <th key={category}>{categoryLabel(category)}</th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {days.map((date) => (
+              <tr key={date}>
+                <th scope="row">{formatPlanDayLabel(date)}</th>
+                {PLAN_SLOT_CATEGORIES.map((category) => {
+                  const slotEntries = entriesBySlot.get(`${date}|${category}`) ?? []
+                  return (
+                    <td key={category}>
+                      {slotEntries.length === 0 ? (
+                        <span className="plan-cell--empty">—</span>
+                      ) : (
+                        <div className="plan-cell-stack">
+                          {slotEntries.map((entry) => (
+                            <PlanCell
+                              key={entry.id}
+                              entry={entry}
+                              meal={mealsById.get(entry.mealId) ?? null}
+                              people={people}
+                              productById={productById}
+                              onDelete={() => onDelete(entry)}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {people.length > 0 ? (
+        <PlanNutritionSummary
+          daily={dailyNutrition}
+          range={rangeNutrition}
+          dayCount={days.length}
+          hasEntries={entries.length > 0}
+        />
+      ) : null}
     </div>
   )
+}
+
+function PlanNutritionSummary({
+  daily,
+  range,
+  dayCount,
+  hasEntries,
+}: {
+  daily: ReturnType<typeof buildDailyNutritionSummaries>
+  range: PersonDayNutrition[]
+  dayCount: number
+  hasEntries: boolean
+}) {
+  return (
+    <section className="plan-nutrition" aria-label={pl.portions.plan.nutritionDailyTitle}>
+      <h3 className="plan-nutrition__title">{pl.portions.plan.nutritionDailyTitle}</h3>
+      {!hasEntries ? (
+        <p className="plan-nutrition__hint">{pl.portions.plan.nutritionEmpty}</p>
+      ) : (
+        <ul className="plan-nutrition__days">
+          {daily.map((day) => (
+            <li key={day.planDate} className="plan-nutrition__day">
+              <div className="plan-nutrition__day-label">{formatPlanDayLabel(day.planDate)}</div>
+              <ul className="plan-nutrition__people">
+                {day.people.map((person) => (
+                  <li key={person.personId} className="plan-nutrition__person">
+                    <span className="plan-nutrition__person-name">{person.personName}</span>
+                    <MacroLine totals={person.totals} />
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h3 className="plan-nutrition__title">
+        {pl.portions.plan.nutritionRangeTitle.replace('{days}', String(dayCount))}
+      </h3>
+      <ul className="plan-nutrition__people plan-nutrition__people--range">
+        {range.map((person) => (
+          <li key={person.personId} className="plan-nutrition__person">
+            <span className="plan-nutrition__person-name">{person.personName}</span>
+            <MacroLine totals={person.totals} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function MacroLine({ totals }: { totals: MacroTotals }) {
+  return (
+    <dl className="plan-nutrition__macros">
+      <div>
+        <dt>{pl.portions.plan.nutritionKcal}</dt>
+        <dd>{formatMacro(totals.calories)}</dd>
+      </div>
+      <div>
+        <dt>{pl.portions.plan.nutritionProtein}</dt>
+        <dd>{formatMacro(totals.protein)} g</dd>
+      </div>
+      <div>
+        <dt>{pl.portions.plan.nutritionCarbs}</dt>
+        <dd>{formatMacro(totals.carbs)} g</dd>
+      </div>
+      <div>
+        <dt>{pl.portions.plan.nutritionFat}</dt>
+        <dd>{formatMacro(totals.fat)} g</dd>
+      </div>
+    </dl>
+  )
+}
+
+function formatMacro(value: number): string {
+  return Math.round(value).toLocaleString('pl-PL')
 }
 
 function PlanCell({
