@@ -209,6 +209,7 @@ export const pl = {
       pdfRecipesTitle: 'Przepisy — obiady',
       pdfPortionsHeading: 'Porcja',
       pdfIngredientsHeading: 'Składniki',
+      pdfDayTotalsHeading: 'Dzień',
       pdfRecipeHeading: 'Przepis',
       pdfPortionsEmpty: 'Brak osób lub składników do wyliczenia porcji.',
       pdfDayColumn: 'Dzień',

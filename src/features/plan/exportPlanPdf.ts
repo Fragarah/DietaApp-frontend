@@ -11,8 +11,13 @@ import {
 } from '../portions/portionMath'
 import { getDefaultPortion, isCountableUnit } from '../products/types'
 import { formatPlanDayLabel, formatPlanRangeLabel } from './settings'
-import type { ShoppingListItem } from './shoppingList'
-import { type MealPlanEntry, type PlanSlotCategory } from './types'
+import { compareShoppingCategories, type ShoppingListItem } from './shoppingList'
+import {
+  formatPlanEntryLabel,
+  peopleForPlanEntry,
+  type MealPlanEntry,
+  type PlanSlotCategory,
+} from './types'
 
 /** Kategorie w tabeli planu PDF (bez Obiadu — obiad tylko na osobnych stronach przepisu). */
 const PLAN_PDF_CATEGORIES = ['SNIADANIE', 'LUNCH', 'DESER'] as const satisfies readonly PlanSlotCategory[]
@@ -53,10 +58,14 @@ type DinnerRecipe = {
   dates: string[]
 }
 
-type PlanCellContent = {
+type PlanCellBlock = {
   name: string
   notes: string | null
   ingredients: string[]
+}
+
+type PlanCellContent = {
+  blocks: PlanCellBlock[]
 }
 
 type PlanTableCell = {
@@ -161,13 +170,16 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
       : pl.portions.plan.pdfPlanTitle
   drawPageHeader(doc, planTitle, range)
 
-  const entryMap = new Map(
-    input.entries.map((entry) => [`${entry.planDate}|${entry.mealCategory}`, entry] as const),
-  )
-  const selectedPeopleDailyTotal = input.people.reduce(
-    (sum, person) => sum + Number(person.dailyKcalLimit),
-    0,
-  )
+  const entriesBySlot = new Map<string, MealPlanEntry[]>()
+  for (const entry of input.entries) {
+    const key = `${entry.planDate}|${entry.mealCategory}`
+    const list = entriesBySlot.get(key)
+    if (list) {
+      list.push(entry)
+    } else {
+      entriesBySlot.set(key, [entry])
+    }
+  }
 
   const head = [
     pl.portions.plan.pdfDayColumn,
@@ -182,16 +194,15 @@ function drawPlanPage(doc: jsPDF, input: PlanPdfInput, range: string): void {
   const body = input.days.map((date) => [
     formatPlanDayLabel(date),
     ...PLAN_PDF_CATEGORIES.map((category) => {
-      const entry = entryMap.get(`${date}|${category}`)
-      if (!entry) {
+      const slotEntries = entriesBySlot.get(`${date}|${category}`) ?? []
+      if (slotEntries.length === 0) {
         return pl.portions.plan.pdfEmptyCell
       }
       return buildPlanTableCell(
         doc,
-        entry,
-        input.mealsById.get(entry.mealId) ?? null,
+        slotEntries,
+        input.mealsById,
         input.people,
-        selectedPeopleDailyTotal,
         input.productById,
         mealColWidth,
       )
@@ -285,32 +296,43 @@ function isPlanTableCell(value: unknown): value is PlanTableCell {
 
 function buildPlanTableCell(
   doc: jsPDF,
-  entry: MealPlanEntry,
-  meal: MealResponse | null,
+  slotEntries: MealPlanEntry[],
+  mealsById: Map<number, MealResponse>,
   people: PersonResponse[],
-  selectedPeopleDailyTotal: number,
   productById: ProductLookup,
   mealColWidth: number,
 ): PlanTableCell {
-  const isDinner = entry.mealCategory === 'OBIAD'
-  const notes =
-    !isDinner && meal?.notes?.trim()
-      ? meal.notes.trim()
-      : null
-  const ingredients = isDinner
-    ? []
-    : buildIngredientWeightLines(entry, meal, people, selectedPeopleDailyTotal, productById)
+  const blocks = slotEntries.map((entry) => {
+    const meal = mealsById.get(entry.mealId) ?? null
+    const entryPeople = peopleForPlanEntry(entry, people)
+    const selectedPeopleDailyTotal = entryPeople.reduce(
+      (sum, person) => sum + Number(person.dailyKcalLimit),
+      0,
+    )
+    const isDinner = entry.mealCategory === 'OBIAD'
+    const notes =
+      !isDinner && meal?.notes?.trim()
+        ? meal.notes.trim()
+        : null
+    const ingredients = isDinner
+      ? []
+      : buildIngredientWeightLines(entry, meal, entryPeople, selectedPeopleDailyTotal, productById)
 
-  const planCell: PlanCellContent = {
-    name: entry.mealName,
-    notes,
-    ingredients,
-  }
+    return {
+      name: formatPlanEntryLabel(entry),
+      notes,
+      ingredients,
+    } satisfies PlanCellBlock
+  })
 
-  const heightLines = [planCell.name, ...planCell.ingredients]
-  if (planCell.notes) {
-    heightLines.push(planCell.notes)
-  }
+  const planCell: PlanCellContent = { blocks }
+  const heightLines = blocks.flatMap((block) => {
+    const lines = [block.name, ...block.ingredients]
+    if (block.notes) {
+      lines.push(block.notes)
+    }
+    return lines
+  })
 
   return {
     content: heightLines.join('\n'),
@@ -329,28 +351,33 @@ function estimatePlanCellHeight(
   const maxWidth = Math.max(16, colWidth - padX * 2)
   let height = padY * 2 + 1
 
-  doc.setFont(FONT_BOLD, 'bold')
-  doc.setFontSize(6.2)
-  const nameLines = doc.splitTextToSize(planCell.name, maxWidth) as string[]
-  height += nameLines.length * 3.1
-
-  if (planCell.ingredients.length > 0) {
-    height += 0.5
-    doc.setFont(FONT_REGULAR, 'normal')
-    doc.setFontSize(5.4)
-    for (const ingredient of planCell.ingredients) {
-      const lines = doc.splitTextToSize(ingredient, maxWidth) as string[]
-      height += lines.length * 2.8
+  planCell.blocks.forEach((block, index) => {
+    if (index > 0) {
+      height += 1.2
     }
-  }
+    doc.setFont(FONT_BOLD, 'bold')
+    doc.setFontSize(6.2)
+    const nameLines = doc.splitTextToSize(block.name, maxWidth) as string[]
+    height += nameLines.length * 3.1
 
-  if (planCell.notes) {
-    height += 0.6
-    doc.setFont(FONT_ITALIC, 'italic')
-    doc.setFontSize(5.4)
-    const noteLines = doc.splitTextToSize(planCell.notes, maxWidth) as string[]
-    height += noteLines.length * 2.8
-  }
+    if (block.ingredients.length > 0) {
+      height += 0.5
+      doc.setFont(FONT_REGULAR, 'normal')
+      doc.setFontSize(5.4)
+      for (const ingredient of block.ingredients) {
+        const lines = doc.splitTextToSize(ingredient, maxWidth) as string[]
+        height += lines.length * 2.8
+      }
+    }
+
+    if (block.notes) {
+      height += 0.6
+      doc.setFont(FONT_ITALIC, 'italic')
+      doc.setFontSize(5.4)
+      const noteLines = doc.splitTextToSize(block.notes, maxWidth) as string[]
+      height += noteLines.length * 2.8
+    }
+  })
 
   return Math.max(8, height + 1.5)
 }
@@ -407,47 +434,54 @@ function drawFormattedPlanCell(
   doc.setFillColor(255, 255, 255)
   doc.rect(cellX + 0.2, cellY + 0.2, cellWidth - 0.4, cellHeight - 0.4, 'F')
 
-  doc.setFont(FONT_BOLD, 'bold')
-  doc.setFontSize(6.2)
-  doc.setTextColor(INK)
-  const nameLines = doc.splitTextToSize(planCell.name, maxWidth) as string[]
-  for (const line of nameLines) {
-    if (y > cellY + cellHeight - 1.5) {
-      return
+  for (let blockIndex = 0; blockIndex < planCell.blocks.length; blockIndex += 1) {
+    const block = planCell.blocks[blockIndex]!
+    if (blockIndex > 0) {
+      y += 1.2
     }
-    doc.text(line, cellX + padX, y)
-    y += 3.1
-  }
 
-  if (planCell.ingredients.length > 0) {
-    y += 0.5
-    doc.setFont(FONT_REGULAR, 'normal')
-    doc.setFontSize(5.4)
+    doc.setFont(FONT_BOLD, 'bold')
+    doc.setFontSize(6.2)
     doc.setTextColor(INK)
-    for (const ingredient of planCell.ingredients) {
-      const ingredientLines = doc.splitTextToSize(ingredient, maxWidth) as string[]
-      for (const line of ingredientLines) {
+    const nameLines = doc.splitTextToSize(block.name, maxWidth) as string[]
+    for (const line of nameLines) {
+      if (y > cellY + cellHeight - 1.5) {
+        return
+      }
+      doc.text(line, cellX + padX, y)
+      y += 3.1
+    }
+
+    if (block.ingredients.length > 0) {
+      y += 0.5
+      doc.setFont(FONT_REGULAR, 'normal')
+      doc.setFontSize(5.4)
+      doc.setTextColor(INK)
+      for (const ingredient of block.ingredients) {
+        const ingredientLines = doc.splitTextToSize(ingredient, maxWidth) as string[]
+        for (const line of ingredientLines) {
+          if (y > cellY + cellHeight - 1.5) {
+            return
+          }
+          doc.text(line, cellX + padX, y)
+          y += 2.8
+        }
+      }
+    }
+
+    if (block.notes) {
+      y += 0.6
+      doc.setFont(FONT_ITALIC, 'italic')
+      doc.setFontSize(5.4)
+      doc.setTextColor(MUTED)
+      const noteLines = doc.splitTextToSize(block.notes, maxWidth) as string[]
+      for (const line of noteLines) {
         if (y > cellY + cellHeight - 1.5) {
           return
         }
         doc.text(line, cellX + padX, y)
         y += 2.8
       }
-    }
-  }
-
-  if (planCell.notes) {
-    y += 0.6
-    doc.setFont(FONT_ITALIC, 'italic')
-    doc.setFontSize(5.4)
-    doc.setTextColor(MUTED)
-    const noteLines = doc.splitTextToSize(planCell.notes, maxWidth) as string[]
-    for (const line of noteLines) {
-      if (y > cellY + cellHeight - 1.5) {
-        return
-      }
-      doc.text(line, cellX + padX, y)
-      y += 2.8
     }
   }
 }
@@ -544,8 +578,7 @@ function drawShoppingColumn(
   maxY: number,
 ): void {
   let y = startY
-  const qtyWidth = Math.min(32, colWidth * 0.36)
-  const nameWidth = colWidth - qtyWidth - 2
+  const qtyGap = 1.8
 
   for (const line of lines) {
     if (line.kind === 'category') {
@@ -568,18 +601,21 @@ function drawShoppingColumn(
       break
     }
 
-    doc.setFont(FONT_REGULAR, 'normal')
+    doc.setFont(FONT_BOLD, 'bold')
     doc.setFontSize(9)
     doc.setTextColor(INK)
+    const qtyWidth = doc.getTextWidth(line.qty)
+    const nameWidth = Math.max(12, colWidth - qtyWidth - qtyGap)
+    doc.setFont(FONT_REGULAR, 'normal')
     const nameLines = doc.splitTextToSize(line.label, nameWidth) as string[]
     const rowHeight = Math.max(4.5, nameLines.length * 3.8)
     if (y + rowHeight > maxY) {
       break
     }
-    doc.text(nameLines, x, y)
     doc.setFont(FONT_BOLD, 'bold')
-    doc.setFontSize(9)
-    doc.text(line.qty, x + colWidth, y, { align: 'right' })
+    doc.text(line.qty, x, y)
+    doc.setFont(FONT_REGULAR, 'normal')
+    doc.text(nameLines, x + qtyWidth + qtyGap, y)
     y += rowHeight
   }
 }
@@ -588,78 +624,137 @@ function drawRecipePage(doc: jsPDF, dinner: DinnerRecipe, input: PlanPdfInput): 
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
   const contentWidth = pageWidth - MARGIN_X * 2
-  const maxY = pageHeight - 14
-  let y = 16
+  const maxY = pageHeight - 12
+  let y = 14
 
   const peopleOrder = input.people.map((person) => person.name).join('/')
   const title =
     peopleOrder.length > 0 ? `${dinner.name} (${peopleOrder})` : dinner.name
 
   doc.setFont(FONT_BOLD, 'bold')
-  doc.setFontSize(18)
+  doc.setFontSize(16)
   doc.setTextColor(INK)
   const titleLines = doc.splitTextToSize(title, contentWidth) as string[]
   doc.text(titleLines, MARGIN_X, y)
-  y += titleLines.length * 7.5 + 2
+  y += titleLines.length * 6.5 + 1.5
 
   doc.setDrawColor(ACCENT)
   doc.setLineWidth(0.55)
   doc.line(MARGIN_X, y, MARGIN_X + 36, y)
-  y += 8
+  y += 6
 
   const meal = input.mealsById.get(dinner.mealId) ?? null
-  const gap = 10
-  const colWidth = (contentWidth - gap) / 2
+  const gap = 5
+  const colWidth = (contentWidth - gap * 2) / 3
   const leftX = MARGIN_X
-  const rightX = MARGIN_X + colWidth + gap
+  const midX = MARGIN_X + colWidth + gap
+  const rightX = MARGIN_X + (colWidth + gap) * 2
 
   const ingredientTotals = buildRecipeIngredientTotals(meal, input.people, input.productById)
+  const dayTotals = buildRecipeDayTotals(meal, input.people, input.productById)
   const portionLines = buildRecipePortionLines(meal, input.people, input.productById)
+
+  // Zostaw minimum miejsca na przepis; kolumny nie mogą zjeść całej strony.
+  const columnsMaxY = Math.min(maxY - 55, y + 95)
 
   const leftEnd = drawRecipeNamedColumn(
     doc,
     leftX,
     y,
     colWidth,
-    maxY - 40,
+    columnsMaxY,
     pl.portions.plan.pdfIngredientsHeading,
     ingredientTotals,
+  )
+  const midEnd = drawRecipeNamedColumn(
+    doc,
+    midX,
+    y,
+    colWidth,
+    columnsMaxY,
+    pl.portions.plan.pdfDayTotalsHeading,
+    dayTotals,
   )
   const rightEnd = drawRecipeNamedColumn(
     doc,
     rightX,
     y,
     colWidth,
-    maxY - 40,
+    columnsMaxY,
     pl.portions.plan.pdfPortionsHeading,
     portionLines,
   )
 
-  y = Math.max(leftEnd, rightEnd) + 4
+  y = Math.max(leftEnd, midEnd, rightEnd) + 3
 
   doc.setDrawColor(RULE)
   doc.setLineWidth(0.25)
   doc.line(MARGIN_X, y, pageWidth - MARGIN_X, y)
-  y += 8
+  y += 5
 
   doc.setFont(FONT_BOLD, 'bold')
-  doc.setFontSize(12)
-  doc.setTextColor(INK)
-  doc.text(pl.portions.plan.pdfRecipeHeading, MARGIN_X, y)
-  y += 7
-
-  const notes = dinner.notes?.trim() || pl.portions.plan.pdfNoNotes
-  doc.setFont(FONT_REGULAR, 'normal')
   doc.setFontSize(11)
   doc.setTextColor(INK)
-  const noteLines = doc.splitTextToSize(notes, contentWidth) as string[]
-  const lineHeight = 5.5
-  for (const line of noteLines) {
-    if (y + lineHeight > maxY) {
+  doc.text(pl.portions.plan.pdfRecipeHeading, MARGIN_X, y)
+  y += 5
+
+  const notes = dinner.notes?.trim() || pl.portions.plan.pdfNoNotes
+  drawFittingRecipeNotes(doc, notes, MARGIN_X, y, maxY, contentWidth)
+}
+
+function drawFittingRecipeNotes(
+  doc: jsPDF,
+  notes: string,
+  x: number,
+  startY: number,
+  maxY: number,
+  contentWidth: number,
+): void {
+  const available = Math.max(8, maxY - startY)
+  const candidates: { fontSize: number; lineHeight: number }[] = [
+    { fontSize: 11, lineHeight: 5.2 },
+    { fontSize: 10, lineHeight: 4.7 },
+    { fontSize: 9, lineHeight: 4.2 },
+    { fontSize: 8, lineHeight: 3.7 },
+    { fontSize: 7, lineHeight: 3.25 },
+    { fontSize: 6.5, lineHeight: 3.0 },
+    { fontSize: 6, lineHeight: 2.75 },
+    { fontSize: 5.5, lineHeight: 2.5 },
+  ]
+
+  doc.setFont(FONT_REGULAR, 'normal')
+  doc.setTextColor(INK)
+
+  let chosen = candidates[candidates.length - 1]!
+  let lines: string[] = []
+
+  for (const candidate of candidates) {
+    doc.setFontSize(candidate.fontSize)
+    const wrapped = doc.splitTextToSize(notes, contentWidth) as string[]
+    if (wrapped.length * candidate.lineHeight <= available) {
+      chosen = candidate
+      lines = wrapped
       break
     }
-    doc.text(line, MARGIN_X, y)
-    y += lineHeight
+    lines = wrapped
+    chosen = candidate
+  }
+
+  // Ostateczny fallback: jeszcze ciaśniejszy interlinia przy najmniejszej czcionce.
+  if (lines.length * chosen.lineHeight > available) {
+    chosen = { fontSize: 5.5, lineHeight: Math.max(2.2, available / Math.max(1, lines.length)) }
+    doc.setFontSize(chosen.fontSize)
+    lines = doc.splitTextToSize(notes, contentWidth) as string[]
+  }
+
+  doc.setFontSize(chosen.fontSize)
+  let y = startY
+  for (const line of lines) {
+    if (y + chosen.lineHeight > maxY + 0.5) {
+      break
+    }
+    doc.text(line, x, y)
+    y += chosen.lineHeight
   }
 }
 
@@ -675,31 +770,31 @@ function drawRecipeNamedColumn(
   let y = startY
 
   doc.setFont(FONT_BOLD, 'bold')
-  doc.setFontSize(12)
+  doc.setFontSize(10)
   doc.setTextColor(INK)
   doc.text(heading, x, y)
-  y += 7
+  y += 5.5
 
   if (lines.length === 0) {
     doc.setFont(FONT_REGULAR, 'normal')
-    doc.setFontSize(9)
+    doc.setFontSize(8)
     doc.setTextColor(MUTED)
     const empty = doc.splitTextToSize(pl.portions.plan.pdfPortionsEmpty, colWidth) as string[]
     doc.text(empty, x, y)
-    return y + empty.length * 4.2
+    return y + empty.length * 3.6
   }
 
   doc.setFont(FONT_REGULAR, 'normal')
-  doc.setFontSize(10)
+  doc.setFontSize(8.5)
   doc.setTextColor(INK)
   for (const line of lines) {
     const wrapped = doc.splitTextToSize(line, colWidth) as string[]
     for (const part of wrapped) {
-      if (y + 5 > maxY) {
+      if (y + 4.2 > maxY) {
         return y
       }
       doc.text(part, x, y)
-      y += 5
+      y += 4.2
     }
   }
   return y
@@ -740,6 +835,15 @@ function buildRecipePortionLines(
   return lines
 }
 
+/** Suma dziennych porcji zaznaczonych osób (bez mnożenia przez liczbę dni). */
+function buildRecipeDayTotals(
+  meal: MealResponse | null,
+  people: PersonResponse[],
+  productById: ProductLookup,
+): string[] {
+  return buildRecipeQuantityLines(meal, people, productById, 1)
+}
+
 /**
  * Suma porcji zaznaczonych osób × liczba dni (WHOLE: plannedDays, inaczej 1).
  */
@@ -751,11 +855,22 @@ function buildRecipeIngredientTotals(
   if (!meal || people.length === 0) {
     return []
   }
-
   const days =
     meal.mealType === 'WHOLE' && meal.plannedDays != null && meal.plannedDays >= 1
       ? meal.plannedDays
       : 1
+  return buildRecipeQuantityLines(meal, people, productById, days)
+}
+
+function buildRecipeQuantityLines(
+  meal: MealResponse | null,
+  people: PersonResponse[],
+  productById: ProductLookup,
+  dayMultiplier: number,
+): string[] {
+  if (!meal || people.length === 0) {
+    return []
+  }
 
   const selectedPeopleDailyTotal = people.reduce(
     (sum, person) => sum + Number(person.dailyKcalLimit),
@@ -781,7 +896,7 @@ function buildRecipeIngredientTotals(
         totalGrams += line.quantityGrams
       }
     }
-    totalGrams *= days
+    totalGrams *= dayMultiplier
 
     const product = productById.get(ingredient.productId)
     const defaultPortion = product ? getDefaultPortion(product) : null
@@ -821,7 +936,7 @@ function groupByCategory(
     map.set(category, list)
   }
   return [...map.entries()]
-    .sort(([a], [b]) => a.localeCompare(b, 'pl'))
+    .sort(([a], [b]) => compareShoppingCategories(a, b))
     .map(([category, groupItems]) => ({ category, items: groupItems }))
 }
 

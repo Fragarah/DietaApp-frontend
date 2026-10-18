@@ -7,7 +7,14 @@ import { pl } from '../../i18n/pl'
 import { formatCountableUnit } from '../../i18n/plCount'
 import { formatPlanDayLabel } from './settings'
 import type { ShoppingListItem } from './shoppingList'
-import { PLAN_SLOT_CATEGORIES, type MealPlanEntry, type PlanSlotCategory } from './types'
+import {
+  formatPlanEntryLabel,
+  peopleForPlanEntry,
+  personInitial,
+  PLAN_SLOT_CATEGORIES,
+  type MealPlanEntry,
+  type PlanSlotCategory,
+} from './types'
 import './Plan.css'
 
 type PlanSlotPickerProps = {
@@ -15,10 +22,11 @@ type PlanSlotPickerProps = {
   meal: MealResponse
   days: string[]
   entries: MealPlanEntry[]
+  people: PersonResponse[]
   assigning: boolean
   error: string | null
   onClose: () => void
-  onPickDay: (planDate: string, replaceExisting: boolean) => void
+  onPickDay: (planDate: string, replaceExisting: boolean, personId: number | null) => void
 }
 
 export function PlanSlotPicker({
@@ -26,6 +34,7 @@ export function PlanSlotPicker({
   meal,
   days,
   entries,
+  people,
   assigning,
   error,
   onClose,
@@ -39,13 +48,57 @@ export function PlanSlotPicker({
   const isWholeBatch = meal.mealType === 'WHOLE' && (meal.plannedDays ?? 0) > 1
   const batchDays = meal.plannedDays ?? 1
 
-  function occupancy(date: string): MealPlanEntry | undefined {
-    return entries.find(
+  function slotEntries(date: string): MealPlanEntry[] {
+    return entries.filter(
       (entry) => entry.planDate === date && entry.mealCategory === category,
     )
   }
 
-  function handlePick(date: string) {
+  function isSharedBusy(date: string): boolean {
+    return slotEntries(date).length > 0
+  }
+
+  function isPersonBusy(date: string, personId: number): boolean {
+    const slot = slotEntries(date)
+    return slot.some(
+      (entry) => entry.personId == null || entry.personId === personId,
+    )
+  }
+
+  function conflictingMealName(date: string, personId: number | null): string | null {
+    const slot = slotEntries(date)
+    if (personId == null) {
+      return slot[0]?.mealName ?? null
+    }
+    const hit = slot.find(
+      (entry) => entry.personId == null || entry.personId === personId,
+    )
+    return hit?.mealName ?? null
+  }
+
+  function occupancyMeta(date: string): string {
+    const slot = slotEntries(date)
+    if (slot.length === 0) {
+      return 'Wolny'
+    }
+    const shared = slot.find((entry) => entry.personId == null)
+    if (shared) {
+      return `Wspólny: ${shared.mealName}`
+    }
+    if (people.length === 0) {
+      return slot.map((entry) => formatPlanEntryLabel(entry)).join(' · ')
+    }
+    return people
+      .map((person) => {
+        const entry = slot.find((item) => item.personId === person.id)
+        return entry
+          ? `${personInitial(person.name)}: ${entry.mealName}`
+          : `${personInitial(person.name)}: wolny`
+      })
+      .join(' · ')
+  }
+
+  function handlePick(date: string, personId: number | null) {
     if (assigning) {
       return
     }
@@ -58,19 +111,24 @@ export function PlanSlotPicker({
         return
       }
       const span = days.slice(days.indexOf(date), endIndex + 1)
-      const conflict = span.some((d) => occupancy(d))
+      const conflict = span.some((d) =>
+        personId == null ? isSharedBusy(d) : isPersonBusy(d, personId),
+      )
       if (conflict && !window.confirm('Część slotów w zakresie garnka jest zajęta. Zastąpić?')) {
         return
       }
-      onPickDay(date, conflict)
+      onPickDay(date, conflict, personId)
       return
     }
 
-    const existing = occupancy(date)
-    if (existing && !window.confirm(`Slot zajęty przez „${existing.mealName}”. Zastąpić?`)) {
-      return
+    const busy = personId == null ? isSharedBusy(date) : isPersonBusy(date, personId)
+    if (busy) {
+      const name = conflictingMealName(date, personId) ?? 'inny posiłek'
+      if (!window.confirm(`Slot zajęty przez „${name}”. Zastąpić?`)) {
+        return
+      }
     }
-    onPickDay(date, Boolean(existing))
+    onPickDay(date, busy, personId)
   }
 
   return (
@@ -87,23 +145,51 @@ export function PlanSlotPicker({
           {meal.name} · {category}
           {isWholeBatch ? ` · garnek ${batchDays} dni` : null}
         </p>
+        <p className="plan-dialog__hint">
+          Klik dnia = obie osoby; litera = tylko ta osoba.
+        </p>
         {error ? <p className="plan-dialog__error">{error}</p> : null}
         <ul className="plan-slot-days">
           {days.map((date) => {
-            const existing = occupancy(date)
+            const sharedBusy = isSharedBusy(date)
             return (
               <li key={date}>
-                <button
-                  type="button"
-                  className={`plan-slot-day${existing ? ' plan-slot-day--busy' : ''}`}
-                  disabled={assigning}
-                  onClick={() => handlePick(date)}
+                <div
+                  className={`plan-slot-day${sharedBusy ? ' plan-slot-day--busy' : ''}`}
                 >
-                  <span className="plan-slot-day__label">{formatPlanDayLabel(date)}</span>
-                  <span className="plan-slot-day__meta">
-                    {existing ? existing.mealName : 'Wolny slot'}
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    className="plan-slot-day__main"
+                    disabled={assigning}
+                    onClick={() => handlePick(date, null)}
+                  >
+                    <span className="plan-slot-day__label">{formatPlanDayLabel(date)}</span>
+                    <span className="plan-slot-day__meta">{occupancyMeta(date)}</span>
+                  </button>
+                  {people.length > 0 ? (
+                    <div className="plan-slot-day__people">
+                      {people.map((person) => {
+                        const busy = isPersonBusy(date, person.id)
+                        return (
+                          <button
+                            key={person.id}
+                            type="button"
+                            className={`plan-slot-day__person${busy ? ' plan-slot-day__person--busy' : ''}`}
+                            disabled={assigning}
+                            title={`${person.name}${busy ? ' (zajęty)' : ''}`}
+                            aria-label={`Dodaj dla ${person.name}`}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handlePick(date, person.id)
+                            }}
+                          >
+                            {personInitial(person.name)}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : null}
+                </div>
               </li>
             )
           })}
@@ -133,13 +219,16 @@ export function PlanGrid({
   productById,
   onDelete,
 }: PlanGridProps) {
-  const entryMap = new Map(
-    entries.map((entry) => [`${entry.planDate}|${entry.mealCategory}`, entry] as const),
-  )
-  const selectedPeopleDailyTotal = people.reduce(
-    (sum, person) => sum + Number(person.dailyKcalLimit),
-    0,
-  )
+  const entriesBySlot = new Map<string, MealPlanEntry[]>()
+  for (const entry of entries) {
+    const key = `${entry.planDate}|${entry.mealCategory}`
+    const list = entriesBySlot.get(key)
+    if (list) {
+      list.push(entry)
+    } else {
+      entriesBySlot.set(key, [entry])
+    }
+  }
 
   return (
     <div className="plan-grid-wrap">
@@ -157,20 +246,24 @@ export function PlanGrid({
             <tr key={date}>
               <th scope="row">{formatPlanDayLabel(date)}</th>
               {PLAN_SLOT_CATEGORIES.map((category) => {
-                const entry = entryMap.get(`${date}|${category}`)
+                const slotEntries = entriesBySlot.get(`${date}|${category}`) ?? []
                 return (
                   <td key={category}>
-                    {entry ? (
-                      <PlanCell
-                        entry={entry}
-                        meal={mealsById.get(entry.mealId) ?? null}
-                        people={people}
-                        selectedPeopleDailyTotal={selectedPeopleDailyTotal}
-                        productById={productById}
-                        onDelete={() => onDelete(entry)}
-                      />
-                    ) : (
+                    {slotEntries.length === 0 ? (
                       <span className="plan-cell--empty">—</span>
+                    ) : (
+                      <div className="plan-cell-stack">
+                        {slotEntries.map((entry) => (
+                          <PlanCell
+                            key={entry.id}
+                            entry={entry}
+                            meal={mealsById.get(entry.mealId) ?? null}
+                            people={people}
+                            productById={productById}
+                            onDelete={() => onDelete(entry)}
+                          />
+                        ))}
+                      </div>
                     )}
                   </td>
                 )
@@ -187,19 +280,22 @@ function PlanCell({
   entry,
   meal,
   people,
-  selectedPeopleDailyTotal,
   productById,
   onDelete,
 }: {
   entry: MealPlanEntry
   meal: MealResponse | null
   people: PersonResponse[]
-  selectedPeopleDailyTotal: number
   productById: ProductLookup
   onDelete: () => void
 }) {
   const category = meal?.mealCategory ?? entry.mealCategory
-  const personColumns = people.map((person) => buildPersonColumn(person, category))
+  const entryPeople = peopleForPlanEntry(entry, people)
+  const selectedPeopleDailyTotal = entryPeople.reduce(
+    (sum, person) => sum + Number(person.dailyKcalLimit),
+    0,
+  )
+  const personColumns = entryPeople.map((person) => buildPersonColumn(person, category))
   const portions = computeCellPortions(
     meal,
     personColumns,
@@ -225,12 +321,14 @@ function PlanCell({
   return (
     <div className="plan-cell">
       <div className="plan-cell__head">
-        <strong>{entry.mealName}</strong>
+        <strong>{formatPlanEntryLabel(entry)}</strong>
         <button type="button" className="plan-cell__delete" onClick={onDelete} title="Usuń">
           ×
         </button>
       </div>
-      <p className="plan-cell__kcal">~{kcalParts.join('/') } kcal</p>
+      {kcalParts.length > 0 ? (
+        <p className="plan-cell__kcal">~{kcalParts.join('/')} kcal</p>
+      ) : null}
       {entry.batchDay != null && entry.batchTotal != null ? (
         <p className="plan-cell__batch">
           batch dzień {entry.batchDay}/{entry.batchTotal}
@@ -322,16 +420,16 @@ export function ShoppingListPreview({
           <ul className="shopping-list">
             {items.map((item) => (
               <li key={item.productId} className="shopping-list__item">
+                <span className="shopping-list__qty">
+                  {item.pieces != null && item.pieceUnit
+                    ? `${formatQty(item.pieces)} ${formatCountableUnit(item.pieceUnit, item.pieces)} (${formatQty(item.grams)} ${pl.meal.summary.grams})`
+                    : `${formatQty(item.grams)} ${pl.meal.summary.grams}`}
+                </span>
                 <div className="shopping-list__name">
                   <strong>{item.productName}</strong>
                   {item.categoryName ? (
                     <span className="shopping-list__category">{item.categoryName}</span>
                   ) : null}
-                </div>
-                <div className="shopping-list__qty">
-                  {item.pieces != null && item.pieceUnit
-                    ? `${formatQty(item.pieces)} ${formatCountableUnit(item.pieceUnit, item.pieces)} (${formatQty(item.grams)} ${pl.meal.summary.grams})`
-                    : `${formatQty(item.grams)} ${pl.meal.summary.grams}`}
                 </div>
               </li>
             ))}

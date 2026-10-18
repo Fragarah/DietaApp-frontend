@@ -429,7 +429,11 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
     setPlanLengthDaysState(parsed)
   }
 
-  async function handleAssignToPlan(planDate: string, replaceExisting: boolean) {
+  async function handleAssignToPlan(
+    planDate: string,
+    replaceExisting: boolean,
+    personId: number | null,
+  ) {
     if (!selectedMeal) {
       return
     }
@@ -446,6 +450,7 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
         startDate: planDate,
         mode,
         replaceExisting,
+        personId,
       })
       setSlotPickerOpen(false)
       setPlanMessage(pl.portions.plan.assignSuccess)
@@ -958,11 +963,12 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
           meal={selectedMeal}
           days={planDays}
           entries={planEntries}
+          people={planPeople}
           assigning={assigningPlan}
           error={planError}
           onClose={() => setSlotPickerOpen(false)}
-          onPickDay={(planDate, replaceExisting) => {
-            void handleAssignToPlan(planDate, replaceExisting)
+          onPickDay={(planDate, replaceExisting, personId) => {
+            void handleAssignToPlan(planDate, replaceExisting, personId)
           }}
         />
       ) : null}

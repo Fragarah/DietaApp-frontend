@@ -10,7 +10,7 @@ import {
   type ProductResponse,
 } from '../products/types'
 import type { MealResponse } from '../meals/types'
-import type { MealPlanEntry } from './types'
+import { peopleForPlanEntry, type MealPlanEntry } from './types'
 
 export type ShoppingListItem = {
   productId: number
@@ -21,8 +21,37 @@ export type ShoppingListItem = {
   pieceUnit: string | null
 }
 
+/** Kolejność kategorii na liście zakupów (UI + PDF). */
+const SHOPPING_CATEGORY_ORDER = [
+  'owoce',
+  'warzywa',
+  'inne',
+  'mięso',
+  'nabiał',
+  'zboż',
+] as const
+
+export function compareShoppingCategories(a: string, b: string): number {
+  const rankA = shoppingCategoryRank(a)
+  const rankB = shoppingCategoryRank(b)
+  if (rankA !== rankB) {
+    return rankA - rankB
+  }
+  return a.localeCompare(b, 'pl')
+}
+
+function shoppingCategoryRank(name: string): number {
+  const normalized = name.trim().toLocaleLowerCase('pl-PL')
+  const index = SHOPPING_CATEGORY_ORDER.findIndex((prefix) =>
+    normalized.startsWith(prefix) || normalized.includes(prefix),
+  )
+  return index === -1 ? SHOPPING_CATEGORY_ORDER.length : index
+}
+
 /**
- * Suma składników z planu w zakresie: każdy slot × porcje zaznaczonych osób.
+ * Suma składników z planu w zakresie.
+ * Wspólny wpis (personId null) → porcje wszystkich zaznaczonych osób.
+ * Wpis per osoba → tylko ta osoba (jeśli jest w zaznaczeniu).
  * Posiłek na wielu dniach jest doliczany wielokrotnie (raz na dzień w planie).
  */
 export function buildShoppingList(params: {
@@ -35,11 +64,6 @@ export function buildShoppingList(params: {
   if (entries.length === 0 || people.length === 0) {
     return []
   }
-
-  const selectedPeopleDailyTotal = people.reduce(
-    (sum, person) => sum + Number(person.dailyKcalLimit),
-    0,
-  )
 
   const byProduct = new Map<
     number,
@@ -83,7 +107,15 @@ export function buildShoppingList(params: {
     if (!meal) {
       continue
     }
-    const personColumns = people.map((person) =>
+    const entryPeople = peopleForPlanEntry(entry, people)
+    if (entryPeople.length === 0) {
+      continue
+    }
+    const selectedPeopleDailyTotal = entryPeople.reduce(
+      (sum, person) => sum + Number(person.dailyKcalLimit),
+      0,
+    )
+    const personColumns = entryPeople.map((person) =>
       buildPersonColumn(person, meal.mealCategory),
     )
     const portions = computePortionsForPeople(
@@ -119,7 +151,7 @@ export function buildShoppingList(params: {
       pieceUnit: item.pieceUnit,
     }))
     .sort((a, b) => {
-      const byCategory = a.categoryName.localeCompare(b.categoryName, 'pl')
+      const byCategory = compareShoppingCategories(a.categoryName, b.categoryName)
       if (byCategory !== 0) {
         return byCategory
       }
