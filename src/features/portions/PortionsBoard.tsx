@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { pl } from '../../i18n/pl'
 import { formatCountableUnit } from '../../i18n/plCount'
 import { assignMealPlan, deleteMealPlanEntry, fetchMealPlan } from '../plan/api'
-import { PlanGrid, PlanSlotPicker, ShoppingListPreview } from '../plan/PlanUi'
+import {
+  PlanGrid,
+  PlanNutritionPreview,
+  PlanSlotPicker,
+  ShoppingListPreview,
+} from '../plan/PlanUi'
+import { PlanStartCalendar } from '../plan/PlanStartCalendar'
 import { exportPlanPdf } from '../plan/exportPlanPdf'
 import { buildShoppingList } from '../plan/shoppingList'
 import {
@@ -80,6 +86,7 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
   const [slotPickerOpen, setSlotPickerOpen] = useState(false)
   const [assigningPlan, setAssigningPlan] = useState(false)
   const [shoppingOpen, setShoppingOpen] = useState(false)
+  const [nutritionOpen, setNutritionOpen] = useState(false)
   const [printingPdf, setPrintingPdf] = useState(false)
 
   useEffect(() => {
@@ -443,6 +450,14 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
   const shoppingEmptyReason =
     planPeople.length === 0 ? 'people' : planEntries.length === 0 ? 'plan' : null
 
+  const knownPlannedDates = useMemo(() => {
+    const dates = new Set<string>()
+    for (const entry of planEntries) {
+      dates.add(entry.planDate)
+    }
+    return dates
+  }, [planEntries])
+
   function handlePlanStartChange(value: string) {
     if (!value) {
       return
@@ -622,25 +637,11 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
       </section>
 
       <section className="plan-range" aria-label={pl.portions.plan.rangeLabel}>
-        <label className="plan-range__calendar">
-          <svg
-            className="plan-range__icon"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-          >
-            <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.75" />
-            <path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-          </svg>
-          <span className="visually-hidden">{pl.portions.plan.calendar}</span>
-          <input
-            type="date"
-            value={planStartDate}
-            onChange={(event) => handlePlanStartChange(event.target.value)}
-          />
-        </label>
+        <PlanStartCalendar
+          value={planStartDate}
+          onChange={handlePlanStartChange}
+          knownPlannedDates={knownPlannedDates}
+        />
         <span className="plan-range__label">
           {formatPlanRangeLabel(planStartDate, planLengthDays)}
         </span>
@@ -661,6 +662,31 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
             onClick={() => setShoppingOpen(true)}
           >
             {pl.portions.plan.shoppingPreview}
+          </button>
+          <button
+            type="button"
+            className="plan-range__icon-btn"
+            title={pl.portions.plan.nutritionPreview}
+            aria-label={pl.portions.plan.nutritionPreview}
+            onClick={() => setNutritionOpen(true)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect
+                x="3.5"
+                y="4.5"
+                width="17"
+                height="15"
+                rx="1.5"
+                stroke="currentColor"
+                strokeWidth="1.75"
+              />
+              <path
+                d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10M14.5 9.5v10"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
           <button
             type="button"
@@ -1009,6 +1035,16 @@ export function PortionsBoard({ reloadToken = 0 }: { reloadToken?: number }) {
         items={shoppingItems}
         emptyReason={shoppingEmptyReason}
         onClose={() => setShoppingOpen(false)}
+      />
+
+      <PlanNutritionPreview
+        open={nutritionOpen}
+        days={planDays}
+        entries={planEntries}
+        mealsById={mealsById}
+        people={planPeople}
+        productById={productById}
+        onClose={() => setNutritionOpen(false)}
       />
     </section>
   )

@@ -111,11 +111,30 @@ export function buildDailyNutritionSummaries(params: {
   }))
 }
 
-/** Suma makro z całego zakresu planu per osoba. */
-export function sumRangeNutrition(
+const KCAL_PER_G = {
+  protein: 4,
+  carbs: 4,
+  fat: 9,
+} as const
+
+/** Udział kcal składnika w dziennych kcal (1 g B/W = 4, 1 g T = 9). */
+export function macroKcalPercent(
+  grams: number,
+  kind: keyof typeof KCAL_PER_G,
+  dayCalories: number,
+): number | null {
+  if (!(dayCalories > 0)) {
+    return null
+  }
+  return (grams * KCAL_PER_G[kind]) / dayCalories * 100
+}
+
+/** Średnie makro z zakresu planu per osoba (suma / liczba dni). */
+export function averageRangeNutrition(
   daily: DayNutritionSummary[],
   people: PersonResponse[],
 ): PersonDayNutrition[] {
+  const dayCount = daily.length
   return people.map((person) => {
     const totals = emptyTotals()
     for (const day of daily) {
@@ -123,6 +142,12 @@ export function sumRangeNutrition(
       if (row) {
         addTotals(totals, row.totals)
       }
+    }
+    if (dayCount > 0) {
+      totals.calories /= dayCount
+      totals.protein /= dayCount
+      totals.carbs /= dayCount
+      totals.fat /= dayCount
     }
     return {
       personId: person.id,

@@ -8,8 +8,9 @@ import { formatCountableUnit } from '../../i18n/plCount'
 import { formatPlanDayLabel } from './settings'
 import type { ShoppingListItem } from './shoppingList'
 import {
+  averageRangeNutrition,
   buildDailyNutritionSummaries,
-  sumRangeNutrition,
+  macroKcalPercent,
   type PersonDayNutrition,
 } from './planNutrition'
 import {
@@ -235,6 +236,75 @@ export function PlanGrid({
     }
   }
 
+  return (
+    <div className="plan-grid-wrap">
+      <table className="plan-grid">
+        <thead>
+          <tr>
+            <th>Dzień</th>
+            {PLAN_SLOT_CATEGORIES.map((category) => (
+              <th key={category}>{categoryLabel(category)}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {days.map((date) => (
+            <tr key={date}>
+              <th scope="row">{formatPlanDayLabel(date)}</th>
+              {PLAN_SLOT_CATEGORIES.map((category) => {
+                const slotEntries = entriesBySlot.get(`${date}|${category}`) ?? []
+                return (
+                  <td key={category}>
+                    {slotEntries.length === 0 ? (
+                      <span className="plan-cell--empty">—</span>
+                    ) : (
+                      <div className="plan-cell-stack">
+                        {slotEntries.map((entry) => (
+                          <PlanCell
+                            key={entry.id}
+                            entry={entry}
+                            meal={mealsById.get(entry.mealId) ?? null}
+                            people={people}
+                            productById={productById}
+                            onDelete={() => onDelete(entry)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+type PlanNutritionPreviewProps = {
+  open: boolean
+  days: string[]
+  entries: MealPlanEntry[]
+  mealsById: Map<number, MealResponse>
+  people: PersonResponse[]
+  productById: ProductLookup
+  onClose: () => void
+}
+
+export function PlanNutritionPreview({
+  open,
+  days,
+  entries,
+  mealsById,
+  people,
+  productById,
+  onClose,
+}: PlanNutritionPreviewProps) {
+  if (!open) {
+    return null
+  }
+
   const dailyNutrition = buildDailyNutritionSummaries({
     days,
     entries,
@@ -242,97 +312,49 @@ export function PlanGrid({
     people,
     productById,
   })
-  const rangeNutrition = sumRangeNutrition(dailyNutrition, people)
+  const rangeNutrition = averageRangeNutrition(dailyNutrition, people)
 
   return (
-    <div className="plan-grid-block">
-      <div className="plan-grid-wrap">
-        <table className="plan-grid">
-          <thead>
-            <tr>
-              <th>Dzień</th>
-              {PLAN_SLOT_CATEGORIES.map((category) => (
-                <th key={category}>{categoryLabel(category)}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {days.map((date) => (
-              <tr key={date}>
-                <th scope="row">{formatPlanDayLabel(date)}</th>
-                {PLAN_SLOT_CATEGORIES.map((category) => {
-                  const slotEntries = entriesBySlot.get(`${date}|${category}`) ?? []
-                  return (
-                    <td key={category}>
-                      {slotEntries.length === 0 ? (
-                        <span className="plan-cell--empty">—</span>
-                      ) : (
-                        <div className="plan-cell-stack">
-                          {slotEntries.map((entry) => (
-                            <PlanCell
-                              key={entry.id}
-                              entry={entry}
-                              meal={mealsById.get(entry.mealId) ?? null}
-                              people={people}
-                              productById={productById}
-                              onDelete={() => onDelete(entry)}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="plan-dialog-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="plan-dialog plan-dialog--nutrition"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="plan-nutrition-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 id="plan-nutrition-title">{pl.portions.plan.nutritionTitle}</h2>
+        {people.length === 0 ? (
+          <p className="plan-dialog__hint">{pl.portions.plan.nutritionEmptyPeople}</p>
+        ) : (
+          <div className="plan-nutrition plan-nutrition--dialog">
+            <h3 className="plan-nutrition__title">{pl.portions.plan.nutritionDailyTitle}</h3>
+            {entries.length === 0 ? (
+              <p className="plan-nutrition__hint">{pl.portions.plan.nutritionEmpty}</p>
+            ) : (
+              <div className="plan-nutrition__days">
+                {dailyNutrition.map((day) => (
+                  <div key={day.planDate} className="plan-nutrition__day">
+                    <div className="plan-nutrition__day-label">
+                      {formatPlanDayLabel(day.planDate)}
+                    </div>
+                    <NutritionTable rows={day.people} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <h3 className="plan-nutrition__title">
+              {pl.portions.plan.nutritionRangeTitle.replace('{days}', String(days.length))}
+            </h3>
+            <NutritionTable rows={rangeNutrition} />
+          </div>
+        )}
+        <button type="button" className="btn btn--secondary" onClick={onClose}>
+          {pl.portions.plan.nutritionClose}
+        </button>
       </div>
-
-      {people.length > 0 ? (
-        <PlanNutritionSummary
-          daily={dailyNutrition}
-          range={rangeNutrition}
-          dayCount={days.length}
-          hasEntries={entries.length > 0}
-        />
-      ) : null}
     </div>
-  )
-}
-
-function PlanNutritionSummary({
-  daily,
-  range,
-  dayCount,
-  hasEntries,
-}: {
-  daily: ReturnType<typeof buildDailyNutritionSummaries>
-  range: PersonDayNutrition[]
-  dayCount: number
-  hasEntries: boolean
-}) {
-  return (
-    <section className="plan-nutrition" aria-label={pl.portions.plan.nutritionDailyTitle}>
-      <h3 className="plan-nutrition__title">{pl.portions.plan.nutritionDailyTitle}</h3>
-      {!hasEntries ? (
-        <p className="plan-nutrition__hint">{pl.portions.plan.nutritionEmpty}</p>
-      ) : (
-        <div className="plan-nutrition__days">
-          {daily.map((day) => (
-            <div key={day.planDate} className="plan-nutrition__day">
-              <div className="plan-nutrition__day-label">{formatPlanDayLabel(day.planDate)}</div>
-              <NutritionTable rows={day.people} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      <h3 className="plan-nutrition__title">
-        {pl.portions.plan.nutritionRangeTitle.replace('{days}', String(dayCount))}
-      </h3>
-      <NutritionTable rows={range} />
-    </section>
   )
 }
 
@@ -349,15 +371,18 @@ function NutritionTable({ rows }: { rows: PersonDayNutrition[] }) {
         </tr>
       </thead>
       <tbody>
-        {rows.map((person) => (
-          <tr key={person.personId}>
-            <th scope="row">{person.personName}</th>
-            <td>{formatMacro(person.totals.calories)}</td>
-            <td>{formatMacro(person.totals.protein)}</td>
-            <td>{formatMacro(person.totals.carbs)}</td>
-            <td>{formatMacro(person.totals.fat)}</td>
-          </tr>
-        ))}
+        {rows.map((person) => {
+          const { totals } = person
+          return (
+            <tr key={person.personId}>
+              <th scope="row">{person.personName}</th>
+              <td>{formatMacro(totals.calories)}</td>
+              <td>{formatMacroWithShare(totals.protein, 'protein', totals.calories)}</td>
+              <td>{formatMacroWithShare(totals.carbs, 'carbs', totals.calories)}</td>
+              <td>{formatMacroWithShare(totals.fat, 'fat', totals.calories)}</td>
+            </tr>
+          )
+        })}
       </tbody>
     </table>
   )
@@ -365,6 +390,19 @@ function NutritionTable({ rows }: { rows: PersonDayNutrition[] }) {
 
 function formatMacro(value: number): string {
   return Math.round(value).toLocaleString('pl-PL')
+}
+
+function formatMacroWithShare(
+  grams: number,
+  kind: 'protein' | 'carbs' | 'fat',
+  dayCalories: number,
+): string {
+  const amount = formatMacro(grams)
+  const pct = macroKcalPercent(grams, kind, dayCalories)
+  if (pct == null) {
+    return amount
+  }
+  return `${amount} (${Math.round(pct)}%)`
 }
 
 function PlanCell({

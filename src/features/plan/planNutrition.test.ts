@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 import type { MealResponse } from '../meals/types'
 import type { PersonResponse } from '../people/types'
 import type { ProductResponse } from '../products/types'
-import { buildDailyNutritionSummaries, sumRangeNutrition } from './planNutrition'
+import {
+  averageRangeNutrition,
+  buildDailyNutritionSummaries,
+  macroKcalPercent,
+} from './planNutrition'
 import type { MealPlanEntry } from './types'
 
 const oats: ProductResponse = {
@@ -126,7 +130,7 @@ describe('planNutrition', () => {
     expect(daily[0]!.people[1]!.totals.calories).toBe(0)
   })
 
-  it('range sum adds days', () => {
+  it('range average divides by day count', () => {
     const daily = buildDailyNutritionSummaries({
       days,
       entries: [
@@ -137,9 +141,16 @@ describe('planNutrition', () => {
       people,
       productById,
     })
-    const range = sumRangeNutrition(daily, people)
+    const range = averageRangeNutrition(daily, people)
     const a = range.find((row) => row.personId === 1)!
     const dayCalories = daily[0]!.people[0]!.totals.calories
-    expect(a.totals.calories).toBeCloseTo(dayCalories * 2, 0)
+    expect(a.totals.calories).toBeCloseTo(dayCalories, 0)
+  })
+
+  it('macroKcalPercent uses 4/4/9 factors', () => {
+    expect(macroKcalPercent(50, 'protein', 2000)).toBe(10)
+    expect(macroKcalPercent(100, 'carbs', 2000)).toBe(20)
+    expect(macroKcalPercent(20, 'fat', 1800)).toBe(10)
+    expect(macroKcalPercent(10, 'protein', 0)).toBeNull()
   })
 })

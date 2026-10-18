@@ -57,6 +57,11 @@
   color: var(--muted);
 }
 
+.plan-start-cal {
+  position: relative;
+  display: inline-block;
+}
+
 .plan-range__calendar {
   display: inline-flex;
   align-items: center;
@@ -68,6 +73,131 @@
   color: var(--ink);
   font: inherit;
   cursor: pointer;
+}
+
+.plan-start-cal__popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  width: 17.5rem;
+  padding: 0.7rem 0.75rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+.plan-start-cal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+
+.plan-start-cal__month {
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-transform: lowercase;
+}
+
+.plan-start-cal__nav {
+  display: inline-flex;
+  gap: 0.15rem;
+}
+
+.plan-start-cal__nav-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.plan-start-cal__nav-btn:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.plan-start-cal__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.15rem;
+  margin-bottom: 0.25rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: center;
+  text-transform: lowercase;
+}
+
+.plan-start-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.2rem;
+}
+
+.plan-start-cal__day {
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.plan-start-cal__day:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+.plan-start-cal__day--outside {
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.plan-start-cal__day--planned {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  font-weight: 600;
+}
+
+.plan-start-cal__day--selected {
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--line));
+  background: color-mix(in srgb, var(--accent) 42%, transparent);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.plan-start-cal__day--today:not(.plan-start-cal__day--selected) {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+
+.plan-start-cal__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.45rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--line);
+}
+
+.plan-start-cal__link {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.2rem 0.15rem;
+}
+
+.plan-start-cal__link:hover {
+  text-decoration: underline;
 }
 
 .plan-range__icon {
@@ -90,13 +220,6 @@
   border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
 }
 
-.plan-range__calendar input[type='date'] {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  max-width: 10.5rem;
-}
 
 .plan-range__label {
   color: var(--muted);
@@ -311,16 +434,16 @@
   font-size: 1.2rem;
 }
 
-.plan-grid-block {
-  display: grid;
-  gap: 1rem;
-}
-
 .plan-grid-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--panel);
+}
+
+.plan-dialog--nutrition {
+  max-width: min(26rem, 100%);
+  width: max-content;
 }
 
 .plan-nutrition {
@@ -329,10 +452,12 @@
   width: max-content;
   max-width: 100%;
   margin-inline: auto;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
+}
+
+.plan-nutrition--dialog {
+  max-height: min(55vh, 28rem);
+  overflow: auto;
+  padding-right: 0.15rem;
 }
 
 .plan-nutrition__title {
